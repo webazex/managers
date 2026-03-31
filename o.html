@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TENET • Анализ конкурентов</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-light: #F2F5F9;
+            --blob-1: #AEEEEE;
+            --blob-2: #E6E6FA;
+            --blob-3: #FFDAB9;
+
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.85);
+            --glass-highlight: rgba(255, 255, 255, 0.95);
+            --glass-blur: blur(28px) saturate(180%);
+            --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.08);
+
+            --text-primary: #000000;
+            --text-secondary: #3C3C43;
+            --text-tertiary: #3C3C4399;
+
+            --accent-cyan: #007AFF;
+            --accent-orange: #FF9500;
+            --accent-green: #34C759;
+            --accent-red: #FF3B30;
+            --accent-bg-cyan: rgba(0, 122, 255, 0.12);
+            --accent-bg-orange: rgba(255, 149, 0, 0.12);
+
+            --radius-xl: 32px;
+            --radius-lg: 24px;
+            --spacing: 32px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background-color: var(--bg-light);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 15px;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .ambient-light {
+            position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #F5F7FA 0%, #FFFFFF 100%);
+        }
+        .blob { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.55; }
+        .blob-1 { top: -15%; left: -15%; width: 55vw; height: 55vw; background: var(--blob-1); }
+        .blob-2 { bottom: -20%; right: -20%; width: 65vw; height: 65vw; background: var(--blob-2); }
+        .blob-3 { top: 30%; left: 30%; width: 40vw; height: 40vw; background: var(--blob-3); }
+
+        .app-container {
+            position: relative; z-index: 1; display: flex; width: 100%; height: 100%;
+            padding: var(--spacing); gap: var(--spacing);
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-top: 1px solid var(--glass-highlight);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-float);
+        }
+
+        .sidebar {
+            width: 86px;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 32px 0; gap: 36px;
+            flex-shrink: 0;
+            transition: width 0.3s cubic-bezier(0.3, 0.8, 0.2, 1);
+            overflow: hidden;
+        }
+        .sidebar:hover {
+            width: 260px; align-items: flex-start; padding-left: 28px;
+            background: rgba(255, 255, 255, 0.88);
+        }
+
+        .logo {
+            width: 44px; height: 44px; border-radius: 14px;
+            background: linear-gradient(135deg, var(--accent-cyan), #5AC8FA);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 16px; color: #fff; flex-shrink: 0;
+            box-shadow: 0 8px 25px rgba(0, 122, 255, 0.3);
+        }
+        .sidebar:hover .logo-text { opacity: 1; width: auto; margin-left: 14px; }
+        .logo-text { opacity: 0; width: 0; white-space: nowrap; transition: 0.3s; font-size: 20px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; }
+        .brand-wrap { display: flex; align-items: center; }
+
+        .nav-list { display: flex; flex-direction: column; gap: 18px; width: 100%; align-items: center; }
+        .sidebar:hover .nav-list { align-items: flex-start; }
+
+        .nav-item {
+            width: 48px; height: 48px; border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-secondary); cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.3, 0.8, 0.2, 1); position: relative;
+        }
+        .sidebar:hover .nav-item { width: 100%; justify-content: flex-start; padding-left: 14px; }
+        .nav-item:hover { background: rgba(0,0,0,0.04); color: var(--text-primary); transform: scale(1.02); }
+        .nav-item.active {
+            background: var(--accent-bg-cyan); color: var(--accent-cyan);
+            border: 1px solid rgba(0, 122, 255, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.1);
+        }
+        .nav-item svg { width: 24px; height: 24px; flex-shrink: 0; stroke-width: 2px; }
+        .nav-label { opacity: 0; margin-left: 18px; font-size: 15px; font-weight: 600; white-space: nowrap; transition: 0.2s; display: none; }
+        .sidebar:hover .nav-label { opacity: 1; display: block; }
+
+        .main { flex: 1; display: flex; flex-direction: column; gap: var(--spacing); overflow: hidden; }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 4px;
+        }
+        .page-title { font-size: 34px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.03em; }
+        .last-update {
+            font-family: 'JetBrains Mono'; font-size: 12px; color: var(--text-secondary);
+            background: rgba(255,255,255,0.6); padding: 8px 16px;
+            border-radius: 24px; border: 1px solid var(--glass-border);
+            font-weight: 500;
+        }
+
+        .content-scroll {
+            flex: 1; overflow-y: auto; padding-right: 12px;
+            display: flex; flex-direction: column; gap: var(--spacing);
+            padding-bottom: var(--spacing);
+        }
+        .content-scroll::-webkit-scrollbar { width: 6px; }
+        .content-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--spacing);
+        }
+
+        .widget {
+            padding: 32px;
+            position: relative; overflow: hidden;
+            display: flex; flex-direction: column; justify-content: space-between;
+            min-height: 160px;
+        }
+        .widget::before {
+            content: ''; position: absolute; top: -70px; right: -70px;
+            width: 140px; height: 140px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 122, 255, 0.1), transparent 70%);
+            pointer-events: none;
+        }
+
+        .widget-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+        .widget-value { font-size: 42px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.04em; line-height: 1; }
+        .widget-footer { display: flex; align-items: center; gap: 12px; margin-top: 20px; font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+        .widget-footer > span:last-child { margin-left: auto; }
+
+        .badge { padding: 6px 14px; border-radius: 16px; font-weight: 600; font-size: 12px; }
+        .badge-cyan { background: var(--accent-bg-cyan); color: var(--accent-cyan); }
+        .badge-orange { background: var(--accent-bg-orange); color: var(--accent-orange); }
+        .badge-green { background: rgba(52, 199, 89, 0.15); color: var(--accent-green); }
+
+        .comparison-widgets-grid {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto 1fr;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .comparison-widget {
+            min-height: 180px;
+            border: 2px solid rgba(0, 122, 255, 0.15);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s cubic-bezier(0.3, 0.8, 0.2, 1);
+            position: relative;
+        }
+
+        .comparison-widget:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+            border-color: rgba(0, 122, 255, 0.3);
+        }
+
+        .comparison-divider {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-tertiary);
+            text-align: center;
+        }
+
+        #val-diff.positive {
+            color: var(--accent-green) !important;
+        }
+
+        #val-diff.negative {
+            color: var(--accent-red) !important;
+        }
+
+        .chart-panel { padding: 36px; min-height: 360px; }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+        .chart-title { font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
+
+        .loading-spinner {
+            display: inline-block; width: 16px; height: 16px;
+            border: 2px solid rgba(0,0,0,0.1); border-top-color: var(--accent-cyan);
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        select, input, textarea {
+            background: rgba(255, 255, 255, 0.65);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary); padding: 16px 20px; border-radius: 16px;
+            font-size: 16px; font-family: 'Inter', sans-serif; font-weight: 500;
+            width: 100%; outline: none;
+            transition: 0.3s cubic-bezier(0.3, 0.8, 0.2, 1); box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        }
+        select:hover, input:hover, textarea:hover { background: rgba(255, 255, 255, 0.9); box-shadow: 0 6px 16px rgba(0,0,0,0.04); }
+        select:focus, input:focus, textarea:focus {
+            border-color: var(--accent-cyan); background: #fff;
+            box-shadow: 0 0 0 4px var(--accent-bg-cyan);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--accent-orange) 0%, #FF3B30 100%);
+            color: white; border: none; padding: 16px 28px;
+            border-radius: 16px; font-weight: 700; cursor: pointer;
+            box-shadow: 0 10px 25px rgba(255, 149, 0, 0.3);
+            transition: all 0.3s cubic-bezier(0.3, 0.8, 0.2, 1); font-size: 16px;
+        }
+        .btn:hover { box-shadow: 0 12px 30px rgba(255, 149, 0, 0.4); transform: translateY(-2px); }
+        .btn:active { transform: scale(0.98); }
+        .btn-cyan {
+            background: linear-gradient(135deg, var(--accent-cyan) 0%, #5AC8FA 100%);
+            box-shadow: 0 10px 25px rgba(0, 122, 255, 0.3);
+        }
+        .btn-cyan:hover { box-shadow: 0 12px 30px rgba(0, 122, 255, 0.4); }
+        .btn-secondary {
+            background: rgba(255,255,255,0.6); color: var(--text-primary);
+            border: 1px solid var(--glass-border); box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            font-weight: 600;
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.9); }
+
+        .table-wrap { overflow-x: auto; border-radius: var(--radius-xl); }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 750px; }
+
+        th {
+            text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+            color: var(--text-tertiary); padding: 20px 28px; font-weight: 600;
+            border-bottom: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.5);
+        }
+        td {
+            padding: 20px 28px; color: var(--text-primary); font-size: 14px; font-weight: 500;
+            border-bottom: 1px solid rgba(0,0,0,0.04); transition: 0.2s;
+        }
+        td:first-child, th:first-child {
+            position: sticky; left: 0; z-index: 10;
+            background: rgba(255, 255, 255, 0.75);
+            border-right: 1px solid var(--glass-border);
+            color: var(--text-primary); font-weight: 700;
+            backdrop-filter: var(--glass-blur);
+        }
+        tr:hover td { background: rgba(0,0,0,0.015); }
+
+        .price-cell { font-family: 'JetBrains Mono'; font-weight: 500; }
+        .best-val { color: var(--accent-cyan); font-weight: 800; }
+
+        .hidden { display: none !important; }
+        .animate-fade { animation: fadeIn 0.5s cubic-bezier(0.3, 0.8, 0.2, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+        .chip-container { display: flex; gap: 12px; flex-wrap: wrap; }
+        .chip {
+            padding: 12px 20px; border-radius: 30px;
+            background: rgba(255,255,255,0.65); border: 1px solid var(--glass-border);
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.3, 0.8, 0.2, 1); user-select: none; color: var(--text-secondary);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        }
+        .chip.interactive:hover {
+            border-color: var(--accent-cyan); color: var(--accent-cyan);
+            background: var(--accent-bg-cyan); transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 122, 255, 0.2);
+        }
+        .chip.static { cursor: default; }
+
+        @media (max-width: 768px) {
+            .app-container { flex-direction: column; padding: 0; gap: 0; }
+            .sidebar {
+                position: fixed; bottom: 0; left: 0; width: 100%; height: 84px;
+                flex-direction: row; padding: 0 32px; z-index: 100;
+                border-radius: 32px 32px 0 0; border-right: none;
+                background: rgba(255, 255, 255, 0.92); justify-content: space-between;
+                box-shadow: 0 -10px 30px rgba(0,0,0,0.05);
+            }
+            .sidebar:hover { width: 100%; padding: 0 32px; align-items: center; }
+            .brand-wrap { display: none; }
+            .nav-list { flex-direction: row; gap: 0; justify-content: space-between; width: 100%; }
+            .nav-item { width: auto; height: auto; padding: 12px; background: transparent !important; border: none !important; box-shadow: none !important; }
+            .nav-item svg { width: 28px; height: 28px; }
+            .nav-label { display: none !important; }
+
+            .main { padding: 24px; height: calc(100vh - 84px); gap: 24px; }
+            .content-scroll { padding-bottom: 100px; gap: 24px; }
+            .bento-grid { grid-template-columns: 1fr !important; gap: 24px; }
+            .comparison-widgets-grid { grid-template-columns: 1fr !important; }
+            .comparison-divider { display: none; }
+            table { min-width: 600px; }
+            td, th { padding: 18px; }
+            .page-title { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-light">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="app-container">
+        <nav class="sidebar glass-panel">
+            <div class="brand-wrap">
+                <div class="logo">T</div>
+                <div class="logo-text">TENET</div>
+            </div>
+
+            <div class="nav-list">
+                <div class="nav-item active" data-tab="overview">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg>
+                    <span class="nav-label">Обзор</span>
+                </div>
+                <div class="nav-item" data-tab="comparison">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 3h5v5"></path><path d="M4 20L21 3"></path><path d="M21 16v5h-5"></path><path d="M15 15l-5 5"></path><path d="M4 4l5 5"></path></svg>
+                    <span class="nav-label">Сравнение</span>
+                </div>
+                <div class="nav-item" data-tab="internet">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                    <span class="nav-label">Интернет</span>
+                </div>
+                <div class="nav-item" data-tab="bundle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="15" rx="3" ry="3"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>
+                    <span class="nav-label">Интернет + ТВ</span>
+                </div>
+                <div class="nav-item" data-tab="promotions">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v8"></path><path d="m4.93 10.93 1.41 1.41"></path><path d="M2 18h2"></path><path d="M20 18h2"></path><path d="m19.07 10.93-1.41 1.41"></path><path d="M22 22H2"></path><path d="m8 22 4-10 4 10"></path></svg>
+                    <span class="nav-label">Акции</span>
+                </div>
+                <div class="nav-item" data-tab="adddata" style="margin-top:auto;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    <span class="nav-label">Редактор</span>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main">
+            <header class="header">
+                <div class="page-title" id="pageTitle">Обзор</div>
+                <div class="last-update" id="lastUpdateTime">
+                    <span class="loading-spinner"></span>
+                </div>
+            </header>
+
+            <div class="content-scroll">
+                
+                <div id="overview-tab" class="view-section animate-fade">
+                    <div class="bento-grid">
+                        <div class="widget glass-panel">
+                            <div>
+                                <div class="widget-label">Всего провайдеров</div>
+                                <div class="widget-value" id="kpi-providers">0</div>
+                            </div>
+                            <div class="widget-footer">
+                                <span class="badge badge-cyan">База</span>
+                            </div>
+                        </div>
+                        <div class="widget glass-panel">
+                            <div>
+                                <div class="widget-label">Средний чек</div>
+                                <div class="widget-value" id="kpi-avg">0 ₴</div>
+                            </div>
+                            <div class="widget-footer">
+                            </div>
+                        </div>
+                        <div class="widget glass-panel">
+                            <div>
+                                <div class="widget-label">Пакетный ARPU</div>
+                                <div class="widget-value" id="kpi-bundle">0 ₴</div>
+                            </div>
+                            <div class="widget-footer">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 24px;">
+                        <select id="packageFilter" style="width: 240px; box-shadow: var(--shadow-float);">
+                            <option value="">Весь рынок</option>
+                            <option value="50">50 Мбит/с</option>
+                            <option value="75">75 Мбит/с</option>
+                            <option value="100">100 Мбит/с</option>
+                            <option value="200">200 Мбит/с</option>
+                            <option value="250">250 Мбит/с</option>
+                            <option value="300">300 Мбит/с</option>
+                            <option value="500">500 Мбит/с</option>
+                            <option value="1000">1 Гбит/с</option>
+                            <option value="50+TV">50 Мбит/с + ТВ</option>
+                            <option value="75+TV">75 Мбит/с + ТВ</option>
+                            <option value="100+TV">100 Мбит/с + ТВ</option>
+                            <option value="200+TV">200 Мбит/с + ТВ</option>
+                            <option value="250+TV">250 Мбит/с + ТВ</option>
+                            <option value="300+TV">300 Мбит/с + ТВ</option>
+                            <option value="500+TV">500 Мбит/с + ТВ</option>
+                            <option value="1000+TV">1 Гбит/с + ТВ</option>
+                            <option value="2500+TV">2.5 Гбит/с + ТВ</option>
+                        </select>
+                    </div>
+
+                    <div class="bento-grid" style="grid-template-columns: 1fr; min-height: 380px;">
+                        <div class="glass-panel chart-panel">
+                            <div class="chart-header">
+                                <div class="chart-title">Анализ стоимости</div>
+                            </div>
+                            <div style="height: 340px;"><canvas id="providerChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="comparison-tab" class="view-section hidden animate-fade">
+                    <div class="glass-panel" style="padding: 32px; display: flex; gap: 24px; align-items: flex-end;">
+                        <div style="flex:1">
+                            <div class="widget-label">Базовый провайдер</div>
+                            <select id="provider1"></select>
+                        </div>
+                        <div style="padding-bottom: 16px; color: var(--text-tertiary); font-weight: 800; font-size: 20px;">VS</div>
+                        <div style="flex:1">
+                            <div class="widget-label">Конкурент</div>
+                            <select id="provider2"></select>
+                        </div>
+                    </div>
+
+                    <div class="comparison-widgets-grid">
+                        <div class="widget glass-panel comparison-widget">
+                            <div class="widget-label" id="lbl-p1">Base</div>
+                            <div class="widget-value" id="val-p1">0</div>
+                        </div>
+                        
+                        <div class="comparison-divider">VS</div>
+                        
+                        <div class="widget glass-panel comparison-widget">
+                            <div class="widget-label" id="lbl-p2">Comp</div>
+                            <div class="widget-value" id="val-p2">0</div>
+                        </div>
+                        
+                        <div class="comparison-divider">=</div>
+                        
+                        <div class="widget glass-panel comparison-widget">
+                            <div class="widget-label">Разница</div>
+                            <div class="widget-value" id="val-diff">0</div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel chart-panel">
+                        <div style="height: 360px;"><canvas id="comparisonBarChart"></canvas></div>
+                    </div>
+
+                    <div class="glass-panel table-wrap">
+                        <table id="comparisonTable"></table>
+                    </div>
+                </div>
+
+                <div id="internet-tab" class="view-section hidden animate-fade">
+                    <div class="glass-panel table-wrap">
+                        <table id="internetTable"></table>
+                    </div>
+                </div>
+
+                <div id="bundle-tab" class="view-section hidden animate-fade">
+                    <div class="glass-panel table-wrap">
+                        <table id="bundleTable"></table>
+                    </div>
+                </div>
+
+                <div id="promotions-tab" class="view-section hidden animate-fade">
+                    <div class="bento-grid" style="grid-template-columns: 1fr 1fr;">
+                        <div>
+                            <h3 style="margin-bottom: 24px; color: var(--accent-orange); font-weight: 800; font-size: 20px;">🔥 Акции</h3>
+                            <div id="promotionsGrid" style="display: flex; flex-direction: column; gap: 24px;"></div>
+                        </div>
+                        <div>
+                            <h3 style="margin-bottom: 24px; color: var(--accent-cyan); font-weight: 800; font-size: 20px;">🛡️ Лояльность</h3>
+                            <div id="loyaltyGrid" style="display: flex; flex-direction: column; gap: 24px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="adddata-tab" class="view-section hidden animate-fade">
+                    <div id="editorAlert"></div>
+                    <div class="glass-panel" style="padding: 40px; max-width: 960px; margin: 0 auto;">
+                        <h2 style="margin-bottom: 32px; color: var(--text-primary); font-weight: 800; font-size: 28px;">Редактор базы данных</h2>
+                        
+                        <div style="margin-bottom: 32px;">
+                            <div class="widget-label">Название провайдера *</div>
+                            <input type="text" id="providerName" placeholder="Например: TENET" required>
+                        </div>
+
+                        <div class="widget-label">Быстрый ввод тарифов</div>
+                        <div id="speedChips" class="chip-container" style="margin-bottom: 36px;"></div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 36px; margin-bottom: 36px;">
+                            <div>
+                                <div class="widget-label" style="color: var(--accent-cyan);">Интернет</div>
+                                <div id="tariffsInternetContainer" style="display: flex; flex-direction: column; gap: 16px;"></div>
+                            </div>
+                            <div>
+                                <div class="widget-label" style="color: var(--accent-orange);">Пакеты (+ТВ)</div>
+                                <div id="tariffsBundleContainer" style="display: flex; flex-direction: column; gap: 16px;"></div>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-secondary" id="addCustomBtn" style="width: 100%; margin-bottom: 36px; font-weight: 700;">+ Добавить свой тариф</button>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 36px; margin-bottom: 36px;">
+                            <div>
+                                <div class="widget-label">Текст акции</div>
+                                <textarea id="promotionText" rows="4" placeholder="Описание акционных предложений..."></textarea>
+                            </div>
+                            <div>
+                                <div class="widget-label">Текст лояльности</div>
+                                <textarea id="loyaltyText" rows="4" placeholder="Описание программы лояльности..."></textarea>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-cyan" id="saveBtn" style="width: 100%; padding: 18px; font-size: 18px;">Сохранить изменения</button>
+                    </div>
+                    <div style="margin-top: 48px; max-width: 960px; margin-left: auto; margin-right: auto; text-align: center;">
+                        <div class="widget-label" style="margin-bottom: 20px;">База провайдеров (Нажмите для редактирования)</div>
+                        <div id="existingProviders" class="chip-container" style="justify-content: center;"></div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const LABELS = {
+            '50': '50 Мбит/с', '75': '75 Мбит/с', '100': '100 Мбит/с',
+            '200': '200 Мбит/с', '250': '250 Мбит/с', '300': '300 Мбит/с',
+            '500': '500 Мбит/с', '1000': '1 Гбит/с',
+            '50+TV': '50 Мбит/с + ТВ', '75+TV': '75 Мбит/с + ТВ',
+            '100+TV': '100 Мбит/с + ТВ', '200+TV': '200 Мбит/с + ТВ',
+            '250+TV': '250 Мбит/с + ТВ', '300+TV': '300 Мбит/с + ТВ',
+            '500+TV': '500 Мбит/с + ТВ', '1000+TV': '1 Гбит/с + ТВ',
+            '2500+TV': '2.5 Гбит/с + ТВ'
+        };
+        function getLabel(key) { return LABELS[key] || key; }
+
+        const AppState = {
+            competitorsData: {
+                'TENET': { 50: null, 75: 259, 100: 338, 200: null, 250: 385, 300: null, 500: 439, 1000: 560, '50+TV': null, '75+TV': 314, '100+TV': 383, '200+TV': null, '250+TV': 450, '300+TV': null, '500+TV': 504, '1000+TV': 625 },
+                'Бриз': { 100: 329, 250: 379, 500: 429, 1000: 479, '100+TV': 379, '250+TV': 419, '500+TV': 489, '1000+TV': 529, '2500+TV': 629 },
+                'Westelecom': { 200: 359, 300: 379, 500: 399, 1000: 529, '200+TV': 508, '300+TV': 528, '500+TV': 548, '1000+TV': 678 },
+                'SOHO': { 50: 240, 100: 300, 300: 360, '50+TV': 300, '100+TV': 360, '300+TV': 420, '1000+TV': 540 },
+                'Соборка': { 50: 270, 100: 300, 200: 300, 500: 360, 1000: 360, '50+TV': 376, '100+TV': 406, '200+TV': 406, '500+TV': 466, '1000+TV': 466 },
+                'САНА': { 75: 235, 100: 330, 250: 365, 500: 430, 1000: 515, '75+TV': 285, '100+TV': 380, '250+TV': 415, '500+TV': 480, '1000+TV': 565 },
+                'Flycom': { 100: 249, 300: 299, 1000: 349, '100+TV': 397, '300+TV': 447, '1000+TV': 497 },
+                'Інфомир': { 50: 240, 75: 265, 100: 310, 250: 370, 500: 420, 1000: 470, '50+TV': 280, '75+TV': 310, '100+TV': 350, '250+TV': 400, '500+TV': 460, '1000+TV': 520 },
+                'Киевстар': { 100: 200, 1000: 350, '1000+TV': 350 },
+                'Застава.NET': { 75: 250, 100: 325, 250: 370, 500: 425, 1000: 500, '75+TV': 300, '100+TV': 380, '250+TV': 469, '500+TV': 480, '1000+TV': 600 },
+                'ICN': { 50: 215, 100: 290, 250: 360, 500: 430, 1000: 500, '50+TV': 285, '100+TV': 360, '250+TV': 430, '500+TV': 500, '1000+TV': 570 },
+                'Мой провайдер': { 75: 249, '75+TV': 329, '100+TV': 349, '1000+TV': 449 },
+                'Datagroup': { 100: 200, 1000: 350, '100+TV': 300, '1000+TV': 650 },
+                'Триолан': { 100: 210, 1000: 300, '100+TV': 330, '1000+TV': 420 },
+                'Водафон': { 1000: 250, '1000+TV': 300 },
+                'Limanet': { 50: 240, 100: 300, 300: 360, 1000: 540, '50+TV': 358, '100+TV': 418, '300+TV': 478, '1000+TV': 658 },
+                'ISP Setka': { 50: 235, 100: 320, 250: 365, 500: 439, 1000: 550, '50+TV': 284, '100+TV': 369, '250+TV': 414, '1000+TV': 488 }
+            },
+            providerLinks: {
+                'TENET': 'https://www.tenet.ua', 'Бриз': 'https://www.briz.ua', 'Westelecom': 'https://westelecom.ua', 'SOHO': 'https://sohonet.ua',
+                'Соборка': 'https://www.soborka.net', 'САНА': 'https://sanaplus.ua', 'Flycom': 'https://flycom.ua', 'Інфомир': 'https://www.infomir.com.ua',
+                'Киевстар': 'https://kyivstar.ua', 'Застава.NET': 'https://www.zastava.net.ua', 'ICN': 'https://icn.ua', 'Мой провайдер': 'https://moiprovaider.ua',
+                'Datagroup': 'https://www.datagroup.ua', 'Триолан': 'https://triolan.com', 'Водафон': 'https://www.vodafone.ua', 'Limanet': 'https://lima.net.ua', 'ISP Setka': 'https://setka.od.ua'
+            },
+            promotionsData: {
+                'TENET': 'Гигабит + ТВ - 130 грн/мес (6 мес). Терминал 599 грн.',
+                'Бриз': 'Гигабит + ТВ - 150 грн/мес (12 мес). Терминал 99 грн.',
+                'Westelecom': 'Гигабит - 79 грн/мес бессрочно.',
+                'Flycom': 'Гигабит - 175 грн/мес (6 мес).',
+                'Інфомир': 'Гигабит + ТВ - 155 грн/мес (9 мес). Терминал бесплатно.',
+                'Киевстар': 'Гигабит + ТВ - 200 грн/мес (3 мес).',
+                'Datagroup': 'Гигабит - 100 грн/мес (1 мес).',
+                'Водафон': 'Гигабит - 125 грн/мес до 2027 года.',
+                'Limanet': 'Гигабит - 270 грн/мес (6 мес).'
+            },
+            loyaltyData: {
+                'TENET': 'Скидка до 20% в зависимости от стажа. Бонусы на счет.',
+                'Бриз': 'Бонус клуб: накопление баллов за оплату, обмен на услуги.',
+                'Інфомир': 'Скидка 5-15% за предоплату 6-12 мес.',
+                'ICN': 'Скидка при оплате за год - 2 месяца в подарок.'
+            },
+            charts: {}
+        };
+
+        function showAlert(message, type = 'success') {
+            const alert = document.getElementById('editorAlert');
+            alert.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => alert.innerHTML = '', 3000);
+        }
+
+        function getAllUniqueSpeeds(isBundle) {
+            const speeds = new Set();
+            Object.values(AppState.competitorsData).forEach(p => {
+                Object.keys(p).forEach(k => {
+                    const isTv = k.includes('TV');
+                    if (isBundle === isTv) speeds.add(k);
+                });
+            });
+            return Array.from(speeds).sort((a,b) => {
+                const numA = parseInt(String(a).replace('+TV', ''));
+                const numB = parseInt(String(b).replace('+TV', ''));
+                return numA - numB;
+            });
+        }
+
+        function setupNavigation() {
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const tab = this.getAttribute('data-tab');
+                    navigateToTab(tab);
+                });
+            });
+
+            document.getElementById('packageFilter').addEventListener('change', renderCharts);
+            document.getElementById('provider1').addEventListener('change', updateComparison);
+            document.getElementById('provider2').addEventListener('change', updateComparison);
+            document.getElementById('addCustomBtn').addEventListener('click', addCustomTariffRow);
+            document.getElementById('saveBtn').addEventListener('click', saveProviderData);
+        }
+
+        function navigateToTab(tab) {
+            document.querySelectorAll('.view-section').forEach(e => e.classList.add('hidden'));
+            document.getElementById(tab+'-tab').classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+            document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+            
+            const titles = {
+                'overview':'Обзор рынка', 
+                'comparison':'Сравнение провайдеров', 
+                'internet':'Интернет', 
+                'bundle':'Интернет + Телевидение', 
+                'promotions':'Маркетинг и акции', 
+                'adddata':'Редактор данных'
+            };
+            document.getElementById('pageTitle').textContent = titles[tab];
+
+            if(tab === 'overview') renderOverview();
+            if(tab === 'comparison') renderComparison();
+            if(tab === 'internet') renderTable('internetTable', false);
+            if(tab === 'bundle') renderTable('bundleTable', true);
+            if(tab === 'promotions') renderPromotions();
+        }
+
+        function renderOverview() {
+            const keys = Object.keys(AppState.competitorsData);
+            let prices = [], bPrices = [];
+            
+            keys.forEach(p => {
+                Object.entries(AppState.competitorsData[p]).forEach(([k,v]) => {
+                    if(v) { 
+                        prices.push(v); 
+                        if(k.includes('TV')) bPrices.push(v); 
+                    }
+                });
+            });
+            
+            const avg = prices.length ? (prices.reduce((a,b)=>a+b,0)/prices.length).toFixed(0) : 0;
+            const avgB = bPrices.length ? (bPrices.reduce((a,b)=>a+b,0)/bPrices.length).toFixed(0) : 0;
+
+            document.getElementById('kpi-providers').textContent = keys.length;
+            document.getElementById('kpi-avg').textContent = avg + ' ₴';
+            document.getElementById('kpi-bundle').textContent = avgB + ' ₴';
+            
+            renderCharts();
+        }
+
+        function renderCharts() {
+            const filter = document.getElementById('packageFilter').value;
+            let avgData = [], allVals = [];
+            
+            Object.keys(AppState.competitorsData).forEach(p => {
+                let pVals = [];
+                Object.entries(AppState.competitorsData[p]).forEach(([k,v]) => {
+                    if(v && (!filter || k == filter)) pVals.push(v);
+                });
+                if(pVals.length) {
+                    avgData.push({name:p, val: pVals.reduce((a,b)=>a+b,0)/pVals.length});
+                    pVals.forEach(x => allVals.push(x));
+                }
+            });
+            avgData.sort((a,b) => a.val - b.val);
+
+            if(AppState.charts.bar) AppState.charts.bar.destroy();
+            const ctx1 = document.getElementById('providerChart').getContext('2d');
+            const g1 = ctx1.createLinearGradient(0,0,0,400); 
+            g1.addColorStop(0, '#007AFF'); 
+            g1.addColorStop(1, 'rgba(0, 122, 255, 0.1)');
+            
+            Chart.defaults.color = '#3C3C4399'; 
+            Chart.defaults.font.family = "'Inter', -apple-system, sans-serif";
+            Chart.defaults.font.size = 12;
+            Chart.defaults.font.weight = 600;
+            
+            AppState.charts.bar = new Chart(ctx1, {
+                type: 'bar',
+                data: { 
+                    labels: avgData.map(d=>d.name), 
+                    datasets: [{ 
+                        label: 'Средняя цена', 
+                        data: avgData.map(d=>d.val), 
+                        backgroundColor: g1, 
+                        borderRadius: 10,
+                        barThickness: 18
+                    }] 
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: {
+                        legend: {display:false}, 
+                        tooltip: { 
+                            backgroundColor: 'rgba(255,255,255,0.95)', 
+                            titleColor:'#000', 
+                            bodyColor:'#3C3C43', 
+                            borderColor: 'rgba(0,0,0,0.05)', 
+                            borderWidth: 1,
+                            titleFont: { family: 'Inter', weight: 700 },
+                            bodyFont: { family: 'Inter', weight: 500 }
+                        }
+                    }, 
+                    scales: { 
+                        y: {grid: {color:'rgba(0,0,0,0.04)', drawBorder: false}, ticks: {padding: 12, font:{weight:600}}}, 
+                        x: {grid:{display:false}, ticks: {padding: 12, font:{weight:600}}} 
+                    } 
+                }
+            });
+        }
+
+        function renderComparison() {
+            populateSelects();
+            updateComparison();
+        }
+
+        function updateComparison() {
+            const p1 = document.getElementById('provider1').value;
+            const p2 = document.getElementById('provider2').value;
+            
+            if(!p1 || !p2) return;
+            
+            document.getElementById('lbl-p1').textContent = p1; 
+            document.getElementById('lbl-p2').textContent = p2;
+            
+            // ВИПРАВЛЕНО: збираємо ВСІ тарифи
+            const keys = Array.from(new Set([
+                ...Object.keys(AppState.competitorsData[p1]), 
+                ...Object.keys(AppState.competitorsData[p2])
+            ])).sort((a,b) => {
+                const numA = parseInt(String(a).replace('+TV', ''));
+                const numB = parseInt(String(b).replace('+TV', ''));
+                return numA - numB;
+            });
+            
+            let html = `<thead><tr><th>Тариф</th><th>${p1}</th><th>${p2}</th><th>Δ</th></tr></thead><tbody>`;
+            let s1=0,c1=0, s2=0,c2=0;
+
+            keys.forEach(k => {
+                const v1 = AppState.competitorsData[p1][k], v2 = AppState.competitorsData[p2][k];
+                if(v1) {s1+=v1; c1++;} 
+                if(v2) {s2+=v2; c2++;}
+                if(!v1 && !v2) return;
+                
+                const d = (v1 && v2) ? v1 - v2 : null;
+                const dColor = d > 0 ? 'var(--accent-red)' : 'var(--accent-green)';
+                const dHtml = d !== null ? `<span style="color:${dColor}; font-weight: 800;">${d>0?'+':''}${d}</span>` : '-';
+                html += `<tr><td style="font-weight: 600;">${getLabel(k)}</td><td class="price-cell">${v1||'-'}</td><td class="price-cell">${v2||'-'}</td><td>${dHtml}</td></tr>`;
+            });
+            
+            document.getElementById('comparisonTable').innerHTML = html + '</tbody>';
+            
+            const avgP1 = c1 ? s1/c1 : 0;
+            const avgP2 = c2 ? s2/c2 : 0;
+            
+            document.getElementById('val-p1').textContent = c1 ? avgP1.toFixed(0)+' ₴' : '0';
+            document.getElementById('val-p2').textContent = c2 ? avgP2.toFixed(0)+' ₴' : '0';
+            
+            const diff = avgP1 - avgP2;
+            const diffEl = document.getElementById('val-diff');
+            diffEl.textContent = (diff>0?'+':'') + diff.toFixed(0) + ' ₴';
+            
+            diffEl.classList.remove('positive', 'negative');
+            if (diff > 0) diffEl.classList.add('negative');
+            if (diff < 0) diffEl.classList.add('positive');
+
+            // ВИПРАВЛЕНО: показуємо всі тарифи на графіку
+            if(AppState.charts.comp) AppState.charts.comp.destroy();
+            AppState.charts.comp = new Chart(document.getElementById('comparisonBarChart'), {
+                type: 'bar',
+                data: { 
+                    labels: keys.map(getLabel),
+                    datasets: [
+                        { label: p1, data: keys.map(k=>AppState.competitorsData[p1][k]), backgroundColor: '#007AFF', borderRadius: 8, barPercentage: 0.6 }, 
+                        { label: p2, data: keys.map(k=>AppState.competitorsData[p2][k]), backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 8, barPercentage: 0.6 }
+                    ] 
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: {
+                        legend: {display: false},
+                        tooltip: { backgroundColor: 'rgba(255,255,255,0.95)', titleColor:'#000', bodyColor:'#3C3C43', borderColor: 'rgba(0,0,0,0.05)', borderWidth: 1, titleFont:{weight:700}, bodyFont:{weight:500} }
+                    },
+                    scales: { 
+                        y:{grid:{color:'rgba(0,0,0,0.04)', drawBorder: false}, ticks:{font:{weight:600}, padding:12}}, 
+                        x:{grid:{display:false}, ticks:{font:{weight:600}, padding:12, maxRotation: 45, minRotation: 45}} 
+                    } 
+                }
+            });
+        }
+
+        function renderTable(id, isBundle) {
+            const keys = getAllUniqueSpeeds(isBundle);
+            let html = `<thead><tr><th>Провайдер</th>${keys.map(k=>`<th>${getLabel(k)}</th>`).join('')}</tr></thead><tbody>`;
+            
+            Object.keys(AppState.competitorsData).forEach(p => {
+                const link = AppState.providerLinks[p];
+                const name = link ? 
+                    `<a href="${link}" target="_blank" style="color:var(--text-primary); text-decoration:none; border-bottom:2px dotted var(--text-tertiary); font-weight: 700;">${p}</a>` 
+                    : `<span style="font-weight: 700;">${p}</span>`;
+                let row = `<tr><td>${name}</td>`;
+                
+                keys.forEach(k => {
+                    const v = AppState.competitorsData[p][k];
+                    const allVals = Object.values(AppState.competitorsData).map(x=>x[k]).filter(Boolean);
+                    const min = allVals.length ? Math.min(...allVals) : null;
+                    const isBest = v && v === min;
+                    row += `<td class="price-cell ${isBest ? 'best-val' : ''}">${v || '-'}</td>`;
+                });
+                
+                html += row + '</tr>';
+            });
+            
+            document.getElementById(id).innerHTML = html + '</tbody>';
+        }
+
+        function renderPromotions() {
+            const card = (t,txt,c) => `
+                <div class="glass-panel" style="padding:28px; border-left:6px solid ${c}; box-shadow: var(--shadow-float);">
+                    <div style="font-weight:800; margin-bottom:14px; color:var(--text-primary); font-size: 17px;">${t}</div>
+                    <div style="font-size:15px; color:var(--text-secondary); line-height:1.6; font-weight:500;">${txt}</div>
+                </div>`;
+            
+            document.getElementById('promotionsGrid').innerHTML = 
+                Object.entries(AppState.promotionsData).map(([k,v])=>card(k,v,'var(--accent-orange)')).join('');
+            document.getElementById('loyaltyGrid').innerHTML = 
+                Object.entries(AppState.loyaltyData).map(([k,v])=>card(k,v,'var(--accent-cyan)')).join('');
+        }
+
+        function renderAddData() {
+            const container = document.getElementById('existingProviders');
+            container.innerHTML = Object.keys(AppState.competitorsData).sort().map(p => 
+                `<div class="chip interactive" data-provider="${p}">${p}</div>`
+            ).join('');
+            
+            container.querySelectorAll('.chip').forEach(chip => {
+                chip.addEventListener('click', function() {
+                    loadProvider(this.getAttribute('data-provider'));
+                });
+            });
+            
+            document.getElementById('speedChips').innerHTML = 
+                ['50','75','100','200','250','300','500','1000','50+TV','75+TV','100+TV','200+TV','250+TV','300+TV','500+TV','1000+TV','2500+TV'].map(s => 
+                    `<div class="chip interactive" data-speed="${s}">+ ${getLabel(s)}</div>`
+                ).join('');
+            
+            document.querySelectorAll('#speedChips .chip').forEach(chip => {
+                chip.addEventListener('click', function() {
+                    addRow(this.getAttribute('data-speed'));
+                });
+            });
+        }
+
+        function loadProvider(p) {
+            document.getElementById('providerName').value = p;
+            document.getElementById('promotionText').value = AppState.promotionsData[p]||'';
+            document.getElementById('loyaltyText').value = AppState.loyaltyData[p]||'';
+            document.getElementById('tariffsInternetContainer').innerHTML = '';
+            document.getElementById('tariffsBundleContainer').innerHTML = '';
+            Object.entries(AppState.competitorsData[p]).forEach(([k,v]) => addRow(k,v));
+        }
+
+        function addRow(speed, price='') {
+            const target = speed.includes('TV') ? 'tariffsBundleContainer' : 'tariffsInternetContainer';
+            const d = document.createElement('div');
+            d.style.cssText = 'display:flex; gap:16px; margin-bottom:16px; align-items:center;';
+            d.innerHTML = `
+                <div class="chip static" style="min-width:150px; text-align:center; font-weight: 700;">${getLabel(speed)}</div>
+                <input type="number" class="t-price" value="${price}" placeholder="Цена (грн)" style="flex:1;">
+                <input type="hidden" class="t-speed" value="${speed}">
+                <button class="remove-btn" style="background:rgba(255, 59, 48, 0.15); border:none; color:var(--accent-red); width:48px; height:48px; border-radius:14px; cursor:pointer; font-size:20px; transition: 0.2s; font-weight: 700;">✕</button>
+            `;
+            
+            d.querySelector('.remove-btn').addEventListener('click', function() { d.remove(); });
+            d.querySelector('.remove-btn').addEventListener('mouseover', function() { this.style.background = 'rgba(255, 59, 48, 0.25)'; });
+            d.querySelector('.remove-btn').addEventListener('mouseout', function() { this.style.background = 'rgba(255, 59, 48, 0.15)'; });
+
+            document.getElementById(target).appendChild(d);
+        }
+
+        function addCustomTariffRow() { 
+            const s = prompt('Введите технический код тарифа (например: 350 или 350+TV)'); 
+            if(s && s.trim()) {
+                const cleaned = s.trim();
+                if(!/^\d+(\+TV)?$/.test(cleaned)) {
+                    showAlert('Неверный формат. Используйте число (500) или число+TV (500+TV)', 'error');
+                    return;
+                }
+                addRow(cleaned); 
+            }
+        }
+
+        function saveProviderData() {
+            const n = document.getElementById('providerName').value.trim();
+            
+            if(!n) {
+                showAlert('Введите название провайдера', 'error');
+                return;
+            }
+            
+            let d = {};
+            let hasData = false;
+            
+            document.querySelectorAll('.t-speed').forEach((e,i) => {
+                const p = document.querySelectorAll('.t-price')[i].value;
+                if(p && parseInt(p) > 0) {
+                    d[e.value] = parseInt(p);
+                    hasData = true;
+                }
+            });
+            
+            if(!hasData) {
+                showAlert('Добавьте хотя бы один тариф с ценой', 'error');
+                return;
+            }
+            
+            AppState.competitorsData[n] = d;
+            
+            const pm = document.getElementById('promotionText').value.trim();
+            if(pm) AppState.promotionsData[n]=pm; 
+            else delete AppState.promotionsData[n];
+            
+            const ly = document.getElementById('loyaltyText').value.trim();
+            if(ly) AppState.loyaltyData[n]=ly; 
+            else delete AppState.loyaltyData[n];
+            
+            showAlert(`Провайдер "${n}" успешно сохранен!`, 'success');
+            renderAddData();
+            
+            document.getElementById('providerName').value = '';
+            document.getElementById('promotionText').value = '';
+            document.getElementById('loyaltyText').value = '';
+            document.getElementById('tariffsInternetContainer').innerHTML = '';
+            document.getElementById('tariffsBundleContainer').innerHTML = '';
+        }
+
+        function populateSelects() {
+            const h = Object.keys(AppState.competitorsData).sort().map(p=>
+                `<option value="${p}">${p}</option>`
+            ).join('');
+            document.getElementById('provider1').innerHTML=h; 
+            document.getElementById('provider2').innerHTML=h;
+            if(Object.keys(AppState.competitorsData).length>1) {
+                document.getElementById('provider2').selectedIndex=1;
+            }
+        }
+
+        function init() {
+            setupNavigation();
+            document.getElementById('lastUpdateTime').textContent = 
+                'Обновление: ' + new Date().toLocaleTimeString('ru-RU');
+            populateSelects();
+            renderOverview();
+            renderAddData();
+        }
+
+        init();
+    </script>
+</body>
+</html>
