@@ -64,4 +64,18 @@ final class Provider extends BaseModel implements AuditableInterface
     {
         return $this->hasOne(\common\models\auth\User::class, ['id' => 'updated_by']);
     }
+    public function getSnapshotItems(): ActiveQuery
+    {
+        return $this->hasMany(\common\models\snapshot\MarketSnapshotItem::class, ['provider_id' => 'id']);
+    }
+
+    public function getSnapshotNotes(): ActiveQuery
+    {
+        return $this->hasMany(\common\models\snapshot\ProviderSnapshotNote::class, ['provider_id' => 'id']);
+    }
+
+    public function getTriggeredSnapshots(): ActiveQuery
+    {
+        return $this->hasMany(\common\models\snapshot\MarketSnapshot::class, ['trigger_provider_id' => 'id']);
+    }
 }
