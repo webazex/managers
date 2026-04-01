@@ -215,12 +215,6 @@ class Provider extends ActiveRecord
         return $this->hasOne(ProviderName::class, ['id' => 'provider_name_id']);
     }
 
-    public function getTariffs()
-    {
-        return $this->hasMany(Tariff::class, ['provider_id' => 'id'])
-            ->orderBy(['speed_mbps' => SORT_ASC]);
-    }
-
     // ─── Удобные геттеры для вида / грида / API ───────────────────────────
 
     public function getDisplayTitle(): string
