@@ -12,23 +12,38 @@ abstract class BaseModel extends ActiveRecord
 {
     public function behaviors(): array
     {
-        return array_merge(parent::behaviors(), [
-            'timestamp' => [
+        $behaviors = parent::behaviors();
+
+        $timestampAttributes = $this->buildTimestampAttributes();
+
+        if ($timestampAttributes !== []) {
+            $behaviors['timestamp'] = [
                 'class' => TimestampBehavior::class,
                 'value' => new Expression('NOW()'),
-                'attributes' => [
-                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_at', 'updated_at'],
-                    ActiveRecord::EVENT_BEFORE_UPDATE => ['updated_at'],
-                ],
-            ],
-        ]);
+                'attributes' => $timestampAttributes,
+            ];
+        }
+
+        return $behaviors;
     }
 
     public function rules(): array
     {
-        return array_merge(parent::rules(), [
-            [['created_at', 'updated_at', 'created_by', 'updated_by'], 'safe'],
-        ]);
+        $safeAttributes = [];
+
+        foreach (['created_at', 'updated_at', 'created_by', 'updated_by'] as $attribute) {
+            if ($this->hasAttribute($attribute)) {
+                $safeAttributes[] = $attribute;
+            }
+        }
+
+        $rules = parent::rules();
+
+        if ($safeAttributes !== []) {
+            $rules[] = [$safeAttributes, 'safe'];
+        }
+
+        return $rules;
     }
 
     public function beforeSave($insert): bool
@@ -103,5 +118,32 @@ abstract class BaseModel extends ActiveRecord
     protected function hasUserComponent(): bool
     {
         return Yii::$app !== null && Yii::$app->has('user', true);
+    }
+
+    private function buildTimestampAttributes(): array
+    {
+        $insertAttributes = [];
+        $updateAttributes = [];
+
+        if ($this->hasAttribute('created_at')) {
+            $insertAttributes[] = 'created_at';
+        }
+
+        if ($this->hasAttribute('updated_at')) {
+            $insertAttributes[] = 'updated_at';
+            $updateAttributes[] = 'updated_at';
+        }
+
+        $result = [];
+
+        if ($insertAttributes !== []) {
+            $result[ActiveRecord::EVENT_BEFORE_INSERT] = $insertAttributes;
+        }
+
+        if ($updateAttributes !== []) {
+            $result[ActiveRecord::EVENT_BEFORE_UPDATE] = $updateAttributes;
+        }
+
+        return $result;
     }
 }
