@@ -1,11 +1,12 @@
-<?php 
-    return [
+<?php
+
+return [
     '' => 'site/index',
     'login' => 'site/login',
-    '<action:\w+>' => 'site/<action>',
-    '<controller:\w+>' => '<controller>/index',
+    'logout' => 'site/logout',
+
+    'editor' => 'competitor-editor/index',
+    'editor/<provider_id:\d+>' => 'competitor-editor/index',
+
     '<controller:\w+>/<action:\w+>' => '<controller>/<action>',
-    '<controller:\w+>/<action:\w+>/<id:\d+>' => '<controller>/<action>',
-    '<controller:\w+>/<id:\d+>' => '<controller>/view',
-    ];
-?>
+];
