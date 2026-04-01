@@ -1,5 +1,9 @@
 <?php
-
+/**
+ * @deprecated Legacy active Provider model.
+ * Transitional class kept during hard reset refactor.
+ * Canonical model is common\models\catalog\Provider.
+ */
 namespace common\models\Provider;
 
 use common\traits\AuditableTrait;
