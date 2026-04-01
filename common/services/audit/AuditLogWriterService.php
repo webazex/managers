@@ -19,10 +19,7 @@ final class AuditLogWriterService extends Component
     ): AuditLog {
         $model = new AuditLog();
 
-        $model->actor_user_id = Yii::$app->user && !Yii::$app->user->isGuest
-            ? (int) Yii::$app->user->id
-            : null;
-
+        $model->actor_user_id = $this->resolveActorUserId();
         $model->entity_type = $entity?->getAuditEntityType() ?? 'system';
         $model->entity_id = property_exists($entity, 'id') ? ($entity->id ?? null) : null;
         $model->action = $action;
@@ -65,12 +62,31 @@ final class AuditLogWriterService extends Component
         return $diff;
     }
 
+    private function resolveActorUserId(): ?int
+    {
+        if (Yii::$app === null || !Yii::$app->has('user', true)) {
+            return null;
+        }
+
+        $user = Yii::$app->get('user');
+
+        if ($user->isGuest) {
+            return null;
+        }
+
+        return (int) $user->id;
+    }
+
     private function resolveRequestId(): ?string
     {
-        $headers = Yii::$app->request?->headers;
+        if (!(Yii::$app->request instanceof \yii\web\Request)) {
+            return null;
+        }
 
-        return $headers?->get('X-Request-Id')
-            ?: $headers?->get('X-Correlation-Id')
+        $headers = Yii::$app->request->headers;
+
+        return $headers->get('X-Request-Id')
+            ?: $headers->get('X-Correlation-Id')
                 ?: null;
     }
 }

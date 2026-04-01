@@ -37,8 +37,7 @@ abstract class BaseModel extends ActiveRecord
             return false;
         }
 
-        $user = Yii::$app->user ?? null;
-        $userId = $user && !$user->isGuest ? (int) $user->id : null;
+        $userId = $this->resolveCurrentUserId();
 
         if ($insert && $this->hasAttribute('created_by') && $this->created_by === null) {
             $this->created_by = $userId;
@@ -64,23 +63,45 @@ abstract class BaseModel extends ActiveRecord
 
     protected function getCurrentActorLabel(): string
     {
-        if (!isset(Yii::$app->user) || Yii::$app->user->isGuest) {
+        if (!$this->hasUserComponent()) {
             return 'Система';
         }
 
-        $identity = Yii::$app->user->identity;
+        $user = Yii::$app->get('user');
+
+        if ($user->isGuest) {
+            return 'Система';
+        }
+
+        $identity = $user->identity;
 
         return $identity->username
             ?? $identity->email
-            ?? ('Пользователь #' . Yii::$app->user->id);
+            ?? ('Пользователь #' . $user->id);
     }
 
     protected function getCurrentUserId(): ?int
     {
-        if (!isset(Yii::$app->user) || Yii::$app->user->isGuest) {
+        return $this->resolveCurrentUserId();
+    }
+
+    protected function resolveCurrentUserId(): ?int
+    {
+        if (!$this->hasUserComponent()) {
             return null;
         }
 
-        return (int) Yii::$app->user->id;
+        $user = Yii::$app->get('user');
+
+        if ($user->isGuest) {
+            return null;
+        }
+
+        return (int) $user->id;
+    }
+
+    protected function hasUserComponent(): bool
+    {
+        return Yii::$app !== null && Yii::$app->has('user', true);
     }
 }

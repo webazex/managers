@@ -37,6 +37,7 @@ final class SnapshotWriterService extends Component
         $transaction = $db->beginTransaction(Transaction::SERIALIZABLE);
 
         try {
+            $actorUserId = $this->resolveActorUserId();
             $category = ProductCategory::findOneOrFail(['code' => $categoryCode]);
             $provider = Provider::findOneOrFail($providerId);
 
@@ -53,7 +54,7 @@ final class SnapshotWriterService extends Component
                 'trigger_provider_id' => $provider->id,
                 'based_on_snapshot_id' => $previousSnapshot?->id,
                 'comment' => $comment,
-                'created_by' => Yii::$app->user && !Yii::$app->user->isGuest ? (int) Yii::$app->user->id : null,
+                'created_by' => $actorUserId,
             ]);
 
             if (!$snapshot->save()) {
@@ -132,7 +133,7 @@ final class SnapshotWriterService extends Component
                 'source_type' => MarketSnapshotItem::SOURCE_CARRY_FORWARD,
                 'is_copied' => true,
                 'changed_in_snapshot' => false,
-                'created_by' => Yii::$app->user && !Yii::$app->user->isGuest ? (int) Yii::$app->user->id : null,
+                'created_by' => $actorUserId,
             ]);
 
             if (!$copy->save()) {
@@ -159,7 +160,7 @@ final class SnapshotWriterService extends Component
                 'source_type' => ProviderSnapshotNote::SOURCE_CARRY_FORWARD,
                 'is_copied' => true,
                 'changed_in_snapshot' => false,
-                'created_by' => Yii::$app->user && !Yii::$app->user->isGuest ? (int) Yii::$app->user->id : null,
+                'created_by' => $actorUserId,
             ]);
 
             if (!$copy->save()) {
@@ -203,7 +204,7 @@ final class SnapshotWriterService extends Component
             $item->source_type = MarketSnapshotItem::SOURCE_MANUAL;
             $item->is_copied = false;
             $item->changed_in_snapshot = true;
-            $item->created_by = Yii::$app->user && !Yii::$app->user->isGuest ? (int) Yii::$app->user->id : null;
+            $item->created_by = $actorUserId;
 
             if (!$item->save()) {
                 throw new Exception('Failed to save provider price: ' . json_encode($item->errors, JSON_UNESCAPED_UNICODE));
@@ -239,10 +240,25 @@ final class SnapshotWriterService extends Component
         $model->source_type = ProviderSnapshotNote::SOURCE_MANUAL;
         $model->is_copied = false;
         $model->changed_in_snapshot = true;
-        $model->created_by = Yii::$app->user && !Yii::$app->user->isGuest ? (int) Yii::$app->user->id : null;
+        $model->created_by = $actorUserId;
 
         if (!$model->save()) {
             throw new Exception('Failed to save provider snapshot note: ' . json_encode($model->errors, JSON_UNESCAPED_UNICODE));
         }
+    }
+
+    private function resolveActorUserId(): ?int
+    {
+        if (Yii::$app === null || !Yii::$app->has('user', true)) {
+            return null;
+        }
+
+        $user = Yii::$app->get('user');
+
+        if ($user->isGuest) {
+            return null;
+        }
+
+        return (int) $user->id;
     }
 }
