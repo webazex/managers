@@ -1,5 +1,9 @@
 <?php
-
+/**
+ * @deprecated Legacy flat User model.
+ * Canonical model is common\models\auth\User.
+ * Kept temporarily during hard reset refactor.
+ */
 namespace common\models;
 
 use Yii;
