@@ -10,6 +10,7 @@ use common\traits\AuditableTrait;
 use yii\db\ActiveRecord;
 use yii\db\Expression;
 use common\models\Provider\ProviderService;
+use common\models\auth\User;
 use Yii;
 
 /**
@@ -51,7 +52,7 @@ class Provider extends ActiveRecord
 
             [['user_id'], 'integer'],
             [['user_id'], 'exist',
-                'targetClass'     => \common\models\User::class,
+                'targetClass'     => User::class,
                 'targetAttribute' => 'id',
                 'skipOnEmpty'     => true,
             ],
@@ -170,7 +171,7 @@ class Provider extends ActiveRecord
 
     public function getUser()
     {
-        return $this->hasOne(\common\models\User::class, ['id' => 'user_id']);
+        return $this->hasOne(User::class, ['id' => 'user_id']);
     }
 
     public function getServices()
