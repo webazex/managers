@@ -38,6 +38,7 @@ final class SnapshotWriterService extends Component
 
         try {
             $actorUserId = $this->resolveActorUserId();
+
             $category = ProductCategory::findOneOrFail(['code' => $categoryCode]);
             $provider = Provider::findOneOrFail($providerId);
 
@@ -62,12 +63,12 @@ final class SnapshotWriterService extends Component
             }
 
             if ($previousSnapshot !== null) {
-                $this->copyPreviousItems($previousSnapshot, $snapshot);
-                $this->copyPreviousNotes($previousSnapshot, $snapshot);
+                $this->copyPreviousItems($previousSnapshot, $snapshot, $actorUserId);
+                $this->copyPreviousNotes($previousSnapshot, $snapshot, $actorUserId);
             }
 
-            $this->applyProviderPrices($snapshot, $provider, $pricesByProductCode);
-            $this->applyProviderNotes($snapshot, $provider, $notes);
+            $this->applyProviderPrices($snapshot, $provider, $pricesByProductCode, $actorUserId);
+            $this->applyProviderNotes($snapshot, $provider, $notes, $actorUserId);
 
             $this->auditLogWriterService->write(
                 action: 'snapshot_create',
@@ -114,8 +115,11 @@ final class SnapshotWriterService extends Component
             ->one();
     }
 
-    private function copyPreviousItems(MarketSnapshot $from, MarketSnapshot $to): void
-    {
+    private function copyPreviousItems(
+        MarketSnapshot $from,
+        MarketSnapshot $to,
+        ?int $actorUserId
+    ): void {
         /** @var MarketSnapshotItem[] $items */
         $items = MarketSnapshotItem::find()
             ->where(['snapshot_id' => $from->id])
@@ -142,8 +146,11 @@ final class SnapshotWriterService extends Component
         }
     }
 
-    private function copyPreviousNotes(MarketSnapshot $from, MarketSnapshot $to): void
-    {
+    private function copyPreviousNotes(
+        MarketSnapshot $from,
+        MarketSnapshot $to,
+        ?int $actorUserId
+    ): void {
         /** @var ProviderSnapshotNote[] $notes */
         $notes = ProviderSnapshotNote::find()
             ->where(['snapshot_id' => $from->id])
@@ -172,8 +179,12 @@ final class SnapshotWriterService extends Component
     /**
      * @param array<string, int|float|string|null> $pricesByProductCode
      */
-    private function applyProviderPrices(MarketSnapshot $snapshot, Provider $provider, array $pricesByProductCode): void
-    {
+    private function applyProviderPrices(
+        MarketSnapshot $snapshot,
+        Provider $provider,
+        array $pricesByProductCode,
+        ?int $actorUserId
+    ): void {
         $products = $snapshot->category->products;
 
         foreach ($products as $product) {
@@ -215,8 +226,12 @@ final class SnapshotWriterService extends Component
     /**
      * @param array{promotion_text?: ?string, loyalty_text?: ?string, editor_note?: ?string} $notes
      */
-    private function applyProviderNotes(MarketSnapshot $snapshot, Provider $provider, array $notes): void
-    {
+    private function applyProviderNotes(
+        MarketSnapshot $snapshot,
+        Provider $provider,
+        array $notes,
+        ?int $actorUserId
+    ): void {
         if ($notes === []) {
             return;
         }
