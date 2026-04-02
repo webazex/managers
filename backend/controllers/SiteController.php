@@ -83,7 +83,14 @@ final class SiteController extends Controller
 
     private function renderDashboard(string $tab): string
     {
-        $allowedTabs = ['overview', 'comparison', 'internet', 'bundle', 'promotions', 'adddata'];
+        $allowedTabs = [
+            'overview',
+            'comparison',
+            'internet',
+            'bundle',
+            'promotions',
+            'adddata',
+        ];
 
         if (!in_array($tab, $allowedTabs, true)) {
             $tab = 'overview';
@@ -98,13 +105,48 @@ final class SiteController extends Controller
 
         $latestInternetSnapshot = $reader->findLatestSnapshotByCategoryCode('internet');
         $internetRows = $latestInternetSnapshot !== null
-            ? $reader->getSnapshotItems((int) $latestInternetSnapshot->id)
+            ? $reader->getSnapshotItems((int)$latestInternetSnapshot->id)
             : [];
 
         return $this->render('index', [
             'activeTab' => $tab,
             'latestInternetSnapshot' => $latestInternetSnapshot,
             'internetRows' => $internetRows,
+            'currentUserName' => $this->resolveCurrentUserName(),
+            'currentUserRole' => $this->resolveCurrentUserRoleLabel(),
         ]);
+    }
+
+    private function resolveCurrentUserName(): string
+    {
+        $identity = Yii::$app->user->identity;
+
+        if ($identity === null) {
+            return 'Гость';
+        }
+
+        return $identity->username
+            ?? $identity->email
+            ?? ('Пользователь #' . Yii::$app->user->id);
+    }
+
+    private function resolveCurrentUserRoleLabel(): string
+    {
+        $roles = Yii::$app->authManager->getRolesByUser((int)Yii::$app->user->id);
+        $roleNames = array_keys($roles);
+
+        if (in_array('admin', $roleNames, true)) {
+            return 'Администратор';
+        }
+
+        if (in_array('editor', $roleNames, true)) {
+            return 'Редактор';
+        }
+
+        if (in_array('manager', $roleNames, true)) {
+            return 'Менеджер';
+        }
+
+        return 'Без роли';
     }
 }

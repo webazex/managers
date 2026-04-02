@@ -4,6 +4,8 @@
  * @var string $activeTab
  * @var \common\models\snapshot\MarketSnapshot|null $latestInternetSnapshot
  * @var \common\models\snapshot\MarketSnapshotItem[] $internetRows
+ * @var string $currentUserName
+ * @var string $currentUserRole
  */
 
 use yii\helpers\Html;
@@ -642,11 +644,14 @@ $tabUrl = static fn(string $tab): string => Url::to(['site/index', 'tab' => $tab
                     <span class="nav-label">Администрирование</span>
                 </a>
             <?php endif; ?>
-
-            <a class="nav-item" href="<?= Html::encode(Url::to(['site/logout'])) ?>" data-method="post">
-                <span class="nav-icon">⎋</span>
-                <span class="nav-label">Выход</span>
-            </a>
+            <div style="min-width: 240px; margin-top: 10px;">
+                <?= Html::beginForm(['site/logout'], 'post', ['style' => 'margin:0;']) ?>
+                <button type="submit" class="nav-item" style="width: 100%; border: 0; text-align: left; cursor: pointer;">
+                    <span class="nav-icon">⎋</span>
+                    <span class="nav-label">Выход</span>
+                </button>
+                <?= Html::endForm() ?>
+            </div>
         </nav>
     </aside>
 
@@ -658,6 +663,15 @@ $tabUrl = static fn(string $tab): string => Url::to(['site/index', 'tab' => $tab
                 <div class="pill">
                     <span class="pill-dot"></span>
                     <span><?= Html::encode($lastUpdateText) ?></span>
+                </div>
+
+                <div class="pill">
+                    <span>👤</span>
+                    <span>
+                        <?= Html::encode($currentUserName) ?>
+                        ·
+                        <?= Html::encode($currentUserRole) ?>
+                    </span>
                 </div>
             </div>
         </header>
