@@ -6,8 +6,9 @@ $params = array_merge(
     require __DIR__ . '/params.php',
     require __DIR__ . '/params-local.php'
 );
-$prodRulesPath = __DIR__.DIRECTORY_SEPARATOR.'rules.php';
-$prodRules = (file_exists($prodRulesPath))? include $prodRulesPath : [];
+
+$prodRules = require __DIR__ . '/rules.php';
+
 return [
     'id' => 'app-backend',
     'basePath' => dirname(__DIR__),
@@ -16,7 +17,7 @@ return [
     'modules' => [],
     'components' => [
         'request' => [
-            'baseUrl' => '/login',
+            'baseUrl' => '',
             'csrfParam' => '_csrf-backend',
         ],
         'user' => [
@@ -25,12 +26,16 @@ return [
             'identityCookie' => [
                 'name' => '_identity-backend',
                 'httpOnly' => true,
+                'path' => '/',
             ],
-            'loginUrl' => ['site/login'],
+            'loginUrl' => ['/site/login'],
         ],
         'session' => [
-            // this is the name of the session cookie used for login on the backend
             'name' => 'advanced-backend',
+            'cookieParams' => [
+                'path' => '/',
+                'httpOnly' => true,
+            ],
         ],
         'log' => [
             'traceLevel' => YII_DEBUG ? 3 : 0,
@@ -45,13 +50,13 @@ return [
             'errorAction' => 'site/error',
         ],
         'urlManager' => [
-            'baseUrl' => '/login',
+            'baseUrl' => '',
             'enablePrettyUrl' => true,
             'showScriptName' => false,
             'rules' => $prodRules,
         ],
         'authManager' => [
-            'class' => 'yii\rbac\DbManager',
+            'class' => \yii\rbac\DbManager::class,
         ],
     ],
     'params' => $params,

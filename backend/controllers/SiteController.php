@@ -3,7 +3,6 @@
 namespace backend\controllers;
 
 use common\models\LoginForm;
-use common\services\snapshot\SnapshotReaderService;
 use Yii;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
@@ -24,7 +23,7 @@ final class SiteController extends Controller
                         'allow' => true,
                     ],
                     [
-                        'actions' => ['logout', 'index'],
+                        'actions' => ['logout', 'dashboard'],
                         'allow' => true,
                         'roles' => ['@'],
                     ],
@@ -48,10 +47,10 @@ final class SiteController extends Controller
         ];
     }
 
-    public function actionLogin(string $tab = 'overview'): string|Response
+    public function actionLogin(): string|Response
     {
         if (!Yii::$app->user->isGuest) {
-            return $this->renderDashboard($tab);
+            return $this->redirect(['/site/dashboard']);
         }
 
         $this->layout = 'blank';
@@ -59,7 +58,7 @@ final class SiteController extends Controller
         $model = new LoginForm();
 
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
-            return $this->redirect(['site/login', 'tab' => 'overview']);
+            return $this->redirect(['/site/dashboard']);
         }
 
         $model->password = '';
@@ -69,28 +68,9 @@ final class SiteController extends Controller
         ]);
     }
 
-    public function actionIndex(string $tab = 'overview'): Response
+    public function actionDashboard(string $tab = 'overview'): string
     {
-        return $this->redirect(['site/login', 'tab' => $tab]);
-    }
-
-    public function actionLogout(): Response
-    {
-        Yii::$app->user->logout();
-
-        return $this->redirect(['site/login']);
-    }
-
-    private function renderDashboard(string $tab): string
-    {
-        $allowedTabs = [
-            'overview',
-            'comparison',
-            'internet',
-            'bundle',
-            'promotions',
-            'adddata',
-        ];
+        $allowedTabs = ['overview', 'comparison', 'internet', 'bundle', 'promotions', 'adddata'];
 
         if (!in_array($tab, $allowedTabs, true)) {
             $tab = 'overview';
@@ -100,21 +80,19 @@ final class SiteController extends Controller
             throw new ForbiddenHttpException('Доступ запрещён.');
         }
 
-        /** @var SnapshotReaderService $reader */
-        $reader = Yii::createObject(SnapshotReaderService::class);
-
-        $latestInternetSnapshot = $reader->findLatestSnapshotByCategoryCode('internet');
-        $internetRows = $latestInternetSnapshot !== null
-            ? $reader->getSnapshotItems((int)$latestInternetSnapshot->id)
-            : [];
-
-        return $this->render('index', [
+        return $this->render('dashboard', [
             'activeTab' => $tab,
-            'latestInternetSnapshot' => $latestInternetSnapshot,
-            'internetRows' => $internetRows,
             'currentUserName' => $this->resolveCurrentUserName(),
             'currentUserRole' => $this->resolveCurrentUserRoleLabel(),
+            'availableTabs' => $this->resolveAvailableTabs(),
         ]);
+    }
+
+    public function actionLogout(): Response
+    {
+        Yii::$app->user->logout();
+
+        return $this->redirect(['/site/login']);
     }
 
     private function resolveCurrentUserName(): string
@@ -148,5 +126,25 @@ final class SiteController extends Controller
         }
 
         return 'Без роли';
+    }
+
+    private function resolveAvailableTabs(): array
+    {
+        $tabs = [
+            'overview' => 'Профиль',
+        ];
+
+        if (Yii::$app->user->can('viewAnalytics')) {
+            $tabs['comparison'] = 'Сравнение';
+            $tabs['internet'] = 'Интернет';
+            $tabs['bundle'] = 'Интернет + ТВ';
+            $tabs['promotions'] = 'Акции';
+        }
+
+        if (Yii::$app->user->can('editCompetitors')) {
+            $tabs['adddata'] = 'Редактор';
+        }
+
+        return $tabs;
     }
 }
