@@ -2,11 +2,9 @@
 
 return [
     '' => 'site/index',
-    'login' => 'site/login',
-    'logout' => 'site/logout',
+    'site/index' => 'site/index',
+    'site/login' => 'site/login',
+    'site/logout' => 'site/logout',
 
-    'editor' => 'competitor-editor/index',
-    'editor/<provider_id:\d+>' => 'competitor-editor/index',
-
-    '<controller:\w+>/<action:\w+>' => '<controller>/<action>',
+    '<tab:(overview|comparison|internet|bundle|promotions|adddata)>' => 'site/index',
 ];

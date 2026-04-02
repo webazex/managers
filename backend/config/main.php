@@ -16,7 +16,7 @@ return [
     'modules' => [],
     'components' => [
         'request' => [
-            'baseUrl' => '/admin',
+            'baseUrl' => '/login',
             'csrfParam' => '_csrf-backend',
         ],
         'user' => [
@@ -26,6 +26,7 @@ return [
                 'name' => '_identity-backend',
                 'httpOnly' => true,
             ],
+            'loginUrl' => ['site/login'],
         ],
         'session' => [
             // this is the name of the session cookie used for login on the backend
@@ -44,7 +45,7 @@ return [
             'errorAction' => 'site/error',
         ],
         'urlManager' => [
-            'baseUrl' => '/admin',
+            'baseUrl' => '/login',
             'enablePrettyUrl' => true,
             'showScriptName' => false,
             'rules' => $prodRules,
