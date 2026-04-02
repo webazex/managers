@@ -644,7 +644,7 @@ $tabUrl = static fn(string $tab): string => Url::to(['site/index', 'tab' => $tab
                     <span class="nav-label">Администрирование</span>
                 </a>
             <?php endif; ?>
-            <div style="min-width: 240px; margin-top: 10px;">
+            <div>
                 <?= Html::beginForm(['site/logout'], 'post', ['style' => 'margin:0;']) ?>
                 <button type="submit" class="nav-item" style="width: 100%; border: 0; text-align: left; cursor: pointer;">
                     <span class="nav-icon">⎋</span>
