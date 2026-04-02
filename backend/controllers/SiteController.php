@@ -48,10 +48,10 @@ final class SiteController extends Controller
         ];
     }
 
-    public function actionLogin(): string|Response
+    public function actionLogin(string $tab = 'overview'): string|Response
     {
         if (!Yii::$app->user->isGuest) {
-            return $this->redirect(['site/index']);
+            return $this->renderDashboard($tab);
         }
 
         $this->layout = 'blank';
@@ -59,7 +59,7 @@ final class SiteController extends Controller
         $model = new LoginForm();
 
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
-            return $this->redirect(['site/index']);
+            return $this->redirect(['site/login', 'tab' => 'overview']);
         }
 
         $model->password = '';
@@ -69,6 +69,11 @@ final class SiteController extends Controller
         ]);
     }
 
+    public function actionIndex(string $tab = 'overview'): Response
+    {
+        return $this->redirect(['site/login', 'tab' => $tab]);
+    }
+
     public function actionLogout(): Response
     {
         Yii::$app->user->logout();
@@ -76,16 +81,9 @@ final class SiteController extends Controller
         return $this->redirect(['site/login']);
     }
 
-    public function actionIndex(string $tab = 'overview'): string
+    private function renderDashboard(string $tab): string
     {
-        $allowedTabs = [
-            'overview',
-            'comparison',
-            'internet',
-            'bundle',
-            'promotions',
-            'adddata',
-        ];
+        $allowedTabs = ['overview', 'comparison', 'internet', 'bundle', 'promotions', 'adddata'];
 
         if (!in_array($tab, $allowedTabs, true)) {
             $tab = 'overview';
@@ -100,7 +98,7 @@ final class SiteController extends Controller
 
         $latestInternetSnapshot = $reader->findLatestSnapshotByCategoryCode('internet');
         $internetRows = $latestInternetSnapshot !== null
-            ? $reader->getSnapshotItems((int)$latestInternetSnapshot->id)
+            ? $reader->getSnapshotItems((int) $latestInternetSnapshot->id)
             : [];
 
         return $this->render('index', [
