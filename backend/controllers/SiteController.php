@@ -35,17 +35,19 @@ final class SiteController extends Controller
     public function actionLogin(): string|Response
     {
         if (!Yii::$app->user->isGuest) {
+            echo "this";
             return $this->redirect(['site/index']);
         }
 
         $model = new LoginForm();
 
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
+            echo "this2";
             return $this->redirect(['site/index']);
         }
 
         $this->layout = 'blank';
-
+        echo "this3";
         return $this->render('login', [
             'model' => $model,
         ]);
