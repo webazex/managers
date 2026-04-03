@@ -1,8 +1,7 @@
 <?php
 
-use yii\db\Migration;
-use yii\db\Query;
-use Yii;
+use \Yii\db\Migration;
+use \Yii\db\Query;
 
 final class m260401_000131_seed_test_users extends Migration
 {
@@ -28,7 +27,7 @@ final class m260401_000131_seed_test_users extends Migration
 
     public function safeUp(): void
     {
-        $security = Yii::$app->security;
+        $security = \Yii::$app->security;
         $now = date('Y-m-d H:i:s');
         $timestamp = time();
 
