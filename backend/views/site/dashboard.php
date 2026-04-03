@@ -18,12 +18,22 @@ $internetSnapshot = $internetSection['snapshot'];
 $internetProviders = $internetSection['providers'];
 $internetProducts = $internetSection['products'];
 $internetMatrix = $internetSection['matrix'];
-
 $tabUrl = static function (string $tab): string {
     return $tab === 'overview'
             ? Url::to('/dashboard')
             : Url::to('/dashboard/' . $tab);
 };
+
+$bundleSnapshot = $bundleSection['snapshot'];
+$bundleProviders = $bundleSection['providers'];
+$bundleProducts = $bundleSection['products'];
+$bundleMatrix = $bundleSection['matrix'];
+
+$promotionsNotes = $promotionsSection['notes'];
+$comparisonRows = $comparisonSection['rows'];
+$comparisonProviders = $comparisonSection['providers'];
+$comparisonProviderAId = $comparisonSection['providerAId'];
+$comparisonProviderBId = $comparisonSection['providerBId'];
 ?>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 
@@ -478,13 +488,287 @@ $tabUrl = static function (string $tab): string {
                     <p class="subtitle">Этот раздел подключим следующим шагом.</p>
                 </div>
             </section>
+            <section class="<?= $activeTab !== 'comparison' ? 'hidden' : '' ?>">
+                <div class="glass-panel card">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:24px; margin-bottom:24px;">
+                        <div style="flex:1;">
+                            <div class="widget-label">Базовый провайдер</div>
+                            <select id="providerASelect">
+                                <?php foreach ($comparisonProviders as $provider): ?>
+                                    <option value="<?= Html::encode((string)$provider['id']) ?>" <?= $provider['id'] === $comparisonProviderAId ? 'selected' : '' ?>>
+                                        <?= Html::encode($provider['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div style="padding-bottom: 14px; color: var(--text-tertiary); font-weight: 800;">VS</div>
+
+                        <div style="flex:1;">
+                            <div class="widget-label">Конкурент</div>
+                            <select id="providerBSelect">
+                                <?php foreach ($comparisonProviders as $provider): ?>
+                                    <option value="<?= Html::encode((string)$provider['id']) ?>" <?= $provider['id'] === $comparisonProviderBId ? 'selected' : '' ?>>
+                                        <?= Html::encode($provider['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="height:360px; margin-bottom:28px;">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Тариф</th>
+                                <th>Базовый</th>
+                                <th>Конкурент</th>
+                                <th>Разница</th>
+                            </tr>
+                            </thead>
+                            <tbody id="comparisonTableBody">
+                            <?php foreach ($comparisonRows as $row): ?>
+                                <tr>
+                                    <td><strong><?= Html::encode($row['product_name']) ?></strong></td>
+                                    <td><?= $row['provider_a_price'] !== null ? Html::encode(number_format((float)$row['provider_a_price'], 0, '.', ' ')) . ' ₴' : '—' ?></td>
+                                    <td><?= $row['provider_b_price'] !== null ? Html::encode(number_format((float)$row['provider_b_price'], 0, '.', ' ')) . ' ₴' : '—' ?></td>
+                                    <td>
+                                        <?php if ($row['delta'] !== null): ?>
+                                            <strong style="color: <?= $row['delta'] > 0 ? 'var(--accent-red)' : 'var(--accent-green)' ?>">
+                                                <?= Html::encode(number_format((float)$row['delta'], 0, '.', ' ')) ?> ₴
+                                            </strong>
+                                        <?php else: ?>
+                                            —
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+
+                            <?php if ($comparisonRows === []): ?>
+                                <tr>
+                                    <td colspan="4">Недостаточно данных для сравнения.</td>
+                                </tr>
+                            <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            <section class="<?= $activeTab !== 'comparison' ? 'hidden' : '' ?>">
+                <div class="glass-panel card">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:24px; margin-bottom:24px;">
+                        <div style="flex:1;">
+                            <div class="widget-label">Базовый провайдер</div>
+                            <select id="providerASelect">
+                                <?php foreach ($comparisonProviders as $provider): ?>
+                                    <option value="<?= Html::encode((string)$provider['id']) ?>" <?= $provider['id'] === $comparisonProviderAId ? 'selected' : '' ?>>
+                                        <?= Html::encode($provider['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div style="padding-bottom: 14px; color: var(--text-tertiary); font-weight: 800;">VS</div>
+
+                        <div style="flex:1;">
+                            <div class="widget-label">Конкурент</div>
+                            <select id="providerBSelect">
+                                <?php foreach ($comparisonProviders as $provider): ?>
+                                    <option value="<?= Html::encode((string)$provider['id']) ?>" <?= $provider['id'] === $comparisonProviderBId ? 'selected' : '' ?>>
+                                        <?= Html::encode($provider['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="height:360px; margin-bottom:28px;">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Тариф</th>
+                                <th>Базовый</th>
+                                <th>Конкурент</th>
+                                <th>Разница</th>
+                            </tr>
+                            </thead>
+                            <tbody id="comparisonTableBody">
+                            <?php foreach ($comparisonRows as $row): ?>
+                                <tr>
+                                    <td><strong><?= Html::encode($row['product_name']) ?></strong></td>
+                                    <td><?= $row['provider_a_price'] !== null ? Html::encode(number_format((float)$row['provider_a_price'], 0, '.', ' ')) . ' ₴' : '—' ?></td>
+                                    <td><?= $row['provider_b_price'] !== null ? Html::encode(number_format((float)$row['provider_b_price'], 0, '.', ' ')) . ' ₴' : '—' ?></td>
+                                    <td>
+                                        <?php if ($row['delta'] !== null): ?>
+                                            <strong style="color: <?= $row['delta'] > 0 ? 'var(--accent-red)' : 'var(--accent-green)' ?>">
+                                                <?= Html::encode(number_format((float)$row['delta'], 0, '.', ' ')) ?> ₴
+                                            </strong>
+                                        <?php else: ?>
+                                            —
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+
+                            <?php if ($comparisonRows === []): ?>
+                                <tr>
+                                    <td colspan="4">Недостаточно данных для сравнения.</td>
+                                </tr>
+                            <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            <section class="<?= $activeTab !== 'promotions' ? 'hidden' : '' ?>">
+                <div class="glass-panel card">
+                    <h2 class="title">Маркетинг и акции</h2>
+                    <p class="subtitle">Данные строятся из `provider_snapshot_note` последнего internet-snapshot.</p>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+                        <?php foreach ($promotionsNotes as $providerCode => $note): ?>
+                            <div class="glass-panel" style="padding:24px;">
+                                <div style="font-size:20px; font-weight:800; margin-bottom:18px;">
+                                    <?= Html::encode($note['provider_name']) ?>
+                                </div>
+
+                                <div style="margin-bottom:18px;">
+                                    <div class="widget-label">Акции</div>
+                                    <div><?= nl2br(Html::encode($note['promotion_text'] ?: '—')) ?></div>
+                                </div>
+
+                                <div style="margin-bottom:18px;">
+                                    <div class="widget-label">Лояльность</div>
+                                    <div><?= nl2br(Html::encode($note['loyalty_text'] ?: '—')) ?></div>
+                                </div>
+
+                                <div style="margin-bottom:18px;">
+                                    <div class="widget-label">Заметка редактора</div>
+                                    <div><?= nl2br(Html::encode($note['editor_note'] ?: '—')) ?></div>
+                                </div>
+
+                                <div style="display:flex; gap:8px;">
+                                    <?php if ($note['source_type'] === 'manual'): ?>
+                                        <span class="mini-tag mini-manual">manual</span>
+                                    <?php else: ?>
+                                        <span class="mini-tag mini-carry">carry</span>
+                                    <?php endif; ?>
+
+                                    <?php if ($note['changed_in_snapshot']): ?>
+                                        <span class="mini-tag" style="background: rgba(52,199,89,.12); color: var(--accent-green);">changed</span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+
+                        <?php if ($promotionsNotes === []): ?>
+                            <div class="glass-panel" style="padding:24px;">
+                                Пока нет данных по акциям и лояльности.
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
 </div>
 
 <script>
-    const chartProducts = <?= json_encode($internetSection['chartProducts'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-    const chartProviders = <?= json_encode($internetSection['chartProviders'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+        const bundleProducts = <?= json_encode($bundleSection['chartProducts'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+        const bundleProviders = <?= json_encode($bundleSection['chartProviders'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+        const comparisonRows = <?= json_encode($comparisonRows, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+        const comparisonProviders = <?= json_encode($comparisonProviders, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+        const comparisonProviderAId = <?= json_encode($comparisonProviderAId) ?>;
+        const comparisonProviderBId = <?= json_encode($comparisonProviderBId) ?>;
+
+        let bundleChartInstance = null;
+        let comparisonChartInstance = null;
+
+        function renderBundleChart() {
+        const canvas = document.getElementById('bundleChart');
+        if (!canvas) return;
+
+        const rows = [];
+
+        bundleProviders.forEach(provider => {
+        const values = Object.values(provider.prices).filter(v => v !== null && v !== undefined).map(Number);
+        if (values.length > 0) {
+        rows.push({
+        name: provider.name,
+        value: values.reduce((a, b) => a + b, 0) / values.length
+    });
+    }
+    });
+
+        rows.sort((a, b) => a.value - b.value);
+
+        if (bundleChartInstance) {
+        bundleChartInstance.destroy();
+    }
+
+        const ctx = canvas.getContext('2d');
+        bundleChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+        labels: rows.map(r => r.name),
+        datasets: [{
+        label: 'Средняя цена пакета',
+        data: rows.map(r => r.value),
+    }]
+    },
+        options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+    }
+    });
+    }
+
+        function renderComparisonChart() {
+        const canvas = document.getElementById('comparisonChart');
+        if (!canvas) return;
+
+        const rows = comparisonRows.filter(r => r.provider_a_price !== null || r.provider_b_price !== null);
+
+        if (comparisonChartInstance) {
+        comparisonChartInstance.destroy();
+    }
+
+        const ctx = canvas.getContext('2d');
+        comparisonChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+        labels: rows.map(r => r.product_name),
+        datasets: [
+    {
+        label: 'Базовый',
+        data: rows.map(r => r.provider_a_price),
+    },
+    {
+        label: 'Конкурент',
+        data: rows.map(r => r.provider_b_price),
+    }
+        ]
+    },
+        options: {
+        responsive: true,
+        maintainAspectRatio: false,
+    }
+    });
+    }
+
+        document.addEventListener('DOMContentLoaded', function () {
+        renderBundleChart();
+        renderComparisonChart();
+    });
 
     let internetChartInstance = null;
 

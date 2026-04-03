@@ -3,6 +3,7 @@
 namespace backend\controllers;
 
 use common\models\LoginForm;
+use common\models\catalog\Provider;
 use common\services\snapshot\SnapshotReaderService;
 use Yii;
 use yii\filters\AccessControl;
@@ -81,7 +82,10 @@ final class SiteController extends Controller
             throw new ForbiddenHttpException('Доступ запрещён.');
         }
 
-        $internetSection = $this->buildInternetSectionData();
+        $internetSection = $this->buildCategorySectionData('internet');
+        $bundleSection = $this->buildCategorySectionData('internet_tv');
+        $promotionsSection = $this->buildPromotionsSectionData();
+        $comparisonSection = $this->buildComparisonSectionData();
 
         return $this->render('dashboard', [
             'activeTab' => $tab,
@@ -89,6 +93,9 @@ final class SiteController extends Controller
             'currentUserRole' => $this->resolveCurrentUserRoleLabel(),
             'availableTabs' => $this->resolveAvailableTabs(),
             'internetSection' => $internetSection,
+            'bundleSection' => $bundleSection,
+            'promotionsSection' => $promotionsSection,
+            'comparisonSection' => $comparisonSection,
         ]);
     }
 
@@ -152,12 +159,12 @@ final class SiteController extends Controller
         return $tabs;
     }
 
-    private function buildInternetSectionData(): array
+    private function buildCategorySectionData(string $categoryCode): array
     {
         /** @var SnapshotReaderService $reader */
         $reader = Yii::createObject(SnapshotReaderService::class);
 
-        $snapshot = $reader->findLatestSnapshotByCategoryCode('internet');
+        $snapshot = $reader->findLatestSnapshotByCategoryCode($categoryCode);
 
         if ($snapshot === null) {
             return [
@@ -253,6 +260,83 @@ final class SiteController extends Controller
             'changedCells' => $changedCells,
             'chartProducts' => $chartProducts,
             'chartProviders' => $chartProviders,
+        ];
+    }
+
+    private function buildPromotionsSectionData(): array
+    {
+        /** @var SnapshotReaderService $reader */
+        $reader = Yii::createObject(SnapshotReaderService::class);
+        $snapshot = $reader->findLatestSnapshotByCategoryCode('internet');
+
+        if ($snapshot === null) {
+            return [
+                'snapshot' => null,
+                'notes' => [],
+            ];
+        }
+
+        $notes = [];
+        foreach ($snapshot->providerNotes as $note) {
+            $providerCode = $note->provider?->code ?? ('provider_' . $note->provider_id);
+
+            $notes[$providerCode] = [
+                'provider_name' => $note->provider?->name ?? $providerCode,
+                'promotion_text' => $note->promotion_text,
+                'loyalty_text' => $note->loyalty_text,
+                'editor_note' => $note->editor_note,
+                'source_type' => $note->source_type,
+                'changed_in_snapshot' => (bool) $note->changed_in_snapshot,
+            ];
+        }
+
+        uasort($notes, static fn(array $a, array $b): int => strcmp($a['provider_name'], $b['provider_name']));
+
+        return [
+            'snapshot' => $snapshot,
+            'notes' => $notes,
+        ];
+    }
+
+    private function buildComparisonSectionData(): array
+    {
+        /** @var SnapshotReaderService $reader */
+        $reader = Yii::createObject(SnapshotReaderService::class);
+        $snapshot = $reader->findLatestSnapshotByCategoryCode('internet');
+
+        $providers = Provider::find()
+            ->where(['is_active' => 1])
+            ->orderBy(['sort_order' => SORT_ASC, 'name' => SORT_ASC])
+            ->all();
+
+        $providerOptions = [];
+        foreach ($providers as $provider) {
+            $providerOptions[] = [
+                'id' => (int) $provider->id,
+                'code' => $provider->code,
+                'name' => $provider->name,
+            ];
+        }
+
+        if ($snapshot === null || count($providerOptions) < 2) {
+            return [
+                'snapshot' => $snapshot,
+                'providers' => $providerOptions,
+                'providerAId' => null,
+                'providerBId' => null,
+                'rows' => [],
+            ];
+        }
+
+        $providerAId = $providerOptions[0]['id'];
+        $providerBId = $providerOptions[1]['id'];
+
+        return [
+            'snapshot' => $snapshot,
+            'providers' => $providerOptions,
+            'providerAId' => $providerAId,
+            'providerBId' => $providerBId,
+            'rows' => $reader->buildComparisonRows((int) $snapshot->id, $providerAId, $providerBId),
         ];
     }
 }
