@@ -113,6 +113,7 @@ $this->title = 'Dashboard';
 
     .value {
         font-weight: 800;
+        color: white;
     }
 
     .section-note {
@@ -150,10 +151,7 @@ $this->title = 'Dashboard';
 
     <main class="main">
         <div class="card">
-            <h1 class="title">Профиль пользователя</h1>
-            <p class="subtitle">
-                Это базовая защищённая страница `/dashboard`.
-            </p>
+            <h1 class="title">Профиль <span><?= Html::encode($currentUserName) ?></span></h1>
 
             <div class="row">
                 <div class="label">Имя</div>
@@ -171,7 +169,7 @@ $this->title = 'Dashboard';
             </div>
 
             <div class="section-note">
-                Далее разделы будут расти уже от `/dashboard/*`.
+
             </div>
         </div>
     </main>
