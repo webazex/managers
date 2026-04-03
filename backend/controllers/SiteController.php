@@ -3,6 +3,7 @@
 namespace backend\controllers;
 
 use common\models\LoginForm;
+use common\services\snapshot\SnapshotReaderService;
 use Yii;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
@@ -50,7 +51,7 @@ final class SiteController extends Controller
     public function actionLogin(): string|Response
     {
         if (!Yii::$app->user->isGuest) {
-            return $this->redirect(['/site/dashboard']);
+            return $this->redirect('/dashboard');
         }
 
         $this->layout = 'blank';
@@ -58,7 +59,7 @@ final class SiteController extends Controller
         $model = new LoginForm();
 
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
-            return $this->redirect(['/site/dashboard']);
+            return $this->redirect('/dashboard');
         }
 
         $model->password = '';
@@ -80,11 +81,14 @@ final class SiteController extends Controller
             throw new ForbiddenHttpException('Доступ запрещён.');
         }
 
+        $internetSection = $this->buildInternetSectionData();
+
         return $this->render('dashboard', [
             'activeTab' => $tab,
             'currentUserName' => $this->resolveCurrentUserName(),
             'currentUserRole' => $this->resolveCurrentUserRoleLabel(),
             'availableTabs' => $this->resolveAvailableTabs(),
+            'internetSection' => $internetSection,
         ]);
     }
 
@@ -92,7 +96,7 @@ final class SiteController extends Controller
     {
         Yii::$app->user->logout();
 
-        return $this->redirect(['/site/login']);
+        return $this->redirect('/login');
     }
 
     private function resolveCurrentUserName(): string
@@ -110,7 +114,7 @@ final class SiteController extends Controller
 
     private function resolveCurrentUserRoleLabel(): string
     {
-        $roles = Yii::$app->authManager->getRolesByUser((int)Yii::$app->user->id);
+        $roles = Yii::$app->authManager->getRolesByUser((int) Yii::$app->user->id);
         $roleNames = array_keys($roles);
 
         if (in_array('admin', $roleNames, true)) {
@@ -146,5 +150,109 @@ final class SiteController extends Controller
         }
 
         return $tabs;
+    }
+
+    private function buildInternetSectionData(): array
+    {
+        /** @var SnapshotReaderService $reader */
+        $reader = Yii::createObject(SnapshotReaderService::class);
+
+        $snapshot = $reader->findLatestSnapshotByCategoryCode('internet');
+
+        if ($snapshot === null) {
+            return [
+                'snapshot' => null,
+                'providers' => [],
+                'products' => [],
+                'matrix' => [],
+                'providerCount' => 0,
+                'avgPrice' => 0,
+                'minPrice' => 0,
+                'maxPrice' => 0,
+                'changedCells' => 0,
+                'chartProducts' => [],
+                'chartProviders' => [],
+            ];
+        }
+
+        $items = $reader->getSnapshotItems((int) $snapshot->id);
+
+        $providers = [];
+        $products = [];
+        $matrix = [];
+        $prices = [];
+        $changedCells = 0;
+
+        foreach ($items as $item) {
+            $providerCode = $item->provider?->code ?? ('provider_' . $item->provider_id);
+            $providerName = $item->provider?->name ?? $providerCode;
+            $productCode = $item->product?->code ?? ('product_' . $item->product_id);
+            $productName = $item->product?->name ?? $productCode;
+
+            $providers[$providerCode] = $providerName;
+            $products[$productCode] = [
+                'code' => $productCode,
+                'name' => $productName,
+            ];
+
+            $matrix[$providerCode][$productCode] = [
+                'price' => $item->price !== null ? (float) $item->price : null,
+                'source_type' => $item->source_type,
+                'is_copied' => (bool) $item->is_copied,
+                'changed_in_snapshot' => (bool) $item->changed_in_snapshot,
+            ];
+
+            if ($item->price !== null) {
+                $prices[] = (float) $item->price;
+            }
+
+            if ((bool) $item->changed_in_snapshot) {
+                $changedCells++;
+            }
+        }
+
+        uasort($products, static function (array $a, array $b): int {
+            $aNum = (int) preg_replace('/\D+/', '', $a['code']);
+            $bNum = (int) preg_replace('/\D+/', '', $b['code']);
+
+            if ($aNum === $bNum) {
+                return strcmp($a['code'], $b['code']);
+            }
+
+            return $aNum <=> $bNum;
+        });
+
+        asort($providers);
+
+        $chartProducts = array_values($products);
+        $chartProviders = [];
+
+        foreach ($providers as $providerCode => $providerName) {
+            $providerPrices = [];
+
+            foreach ($products as $productCode => $productData) {
+                $providerPrices[$productCode] = $matrix[$providerCode][$productCode]['price'] ?? null;
+            }
+
+            $chartProviders[] = [
+                'code' => $providerCode,
+                'name' => $providerName,
+                'prices' => $providerPrices,
+            ];
+        }
+
+        return [
+            'snapshot' => $snapshot,
+            'providers' => $providers,
+            'products' => $products,
+            'matrix' => $matrix,
+            'providerCount' => count($providers),
+            'avgPrice' => $prices !== [] ? round(array_sum($prices) / count($prices)) : 0,
+            'minPrice' => $prices !== [] ? min($prices) : 0,
+            'maxPrice' => $prices !== [] ? max($prices) : 0,
+            'changedCells' => $changedCells,
+            'chartProducts' => $chartProducts,
+            'chartProviders' => $chartProviders,
+        ];
     }
 }
