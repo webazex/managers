@@ -12,7 +12,6 @@ $localRules = (file_exists($localRulesPath))? include  $localRulesPath : [];
 $prodRules = (file_exists($prodlRulesPath))? include $prodlRulesPath : [];
 $rules = array_merge($prodRules, $localRules);
 
-
 return [
     'id' => 'app-frontend',
     'basePath' => dirname(__DIR__),
@@ -21,16 +20,7 @@ return [
     'components' => [
         'request' => [
             'csrfParam' => '_csrf-frontend',
-            'baseUrl' => ''
-        ],
-        'user' => [
-            'identityClass' => 'common\models\User',
-            'enableAutoLogin' => true,
-            'identityCookie' => ['name' => '_identity-frontend', 'httpOnly' => true],
-        ],
-        'session' => [
-            // this is the name of the session cookie used for login on the frontend
-            'name' => 'advanced-frontend',
+            'baseUrl' => '',
         ],
         'log' => [
             'traceLevel' => YII_DEBUG ? 3 : 0,
@@ -48,13 +38,8 @@ return [
             'baseUrl' => '',
             'enablePrettyUrl' => true,
             'showScriptName' => false,
-            'rules' => $rules
+            'rules' => $rules,
         ],
-        'authManager' => [
-            'class' => 'yii\rbac\DbManager',
-            'defaultRoles' => ['manager'],     // manageeeeeers!
-        ],
-
     ],
     'params' => $params,
 ];
