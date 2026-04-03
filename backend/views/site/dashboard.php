@@ -481,13 +481,6 @@ $comparisonProviderBId = $comparisonSection['providerBId'];
                     </table>
                 </div>
             </section>
-
-            <section class="<?= !in_array($activeTab, ['comparison','bundle','promotions','adddata'], true) ? 'hidden' : '' ?>">
-                <div class="glass-panel card">
-                    <h2 class="title"><?= Html::encode($availableTabs[$activeTab] ?? $activeTab) ?></h2>
-                    <p class="subtitle">Этот раздел подключим следующим шагом.</p>
-                </div>
-            </section>
             <section class="<?= $activeTab !== 'comparison' ? 'hidden' : '' ?>">
                 <div class="glass-panel card">
                     <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:24px; margin-bottom:24px;">
@@ -682,103 +675,160 @@ $comparisonProviderBId = $comparisonSection['providerBId'];
 </div>
 
 <script>
-        const bundleProducts = <?= json_encode($bundleSection['chartProducts'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-        const bundleProviders = <?= json_encode($bundleSection['chartProviders'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-        const comparisonRows = <?= json_encode($comparisonRows, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-        const comparisonProviders = <?= json_encode($comparisonProviders, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-        const comparisonProviderAId = <?= json_encode($comparisonProviderAId) ?>;
-        const comparisonProviderBId = <?= json_encode($comparisonProviderBId) ?>;
+    const chartProducts = <?= json_encode($internetSection['chartProducts'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const chartProviders = <?= json_encode($internetSection['chartProviders'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const bundleProducts = <?= json_encode($bundleSection['chartProducts'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const bundleProviders = <?= json_encode($bundleSection['chartProviders'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const comparisonProviders = <?= json_encode($comparisonProviders, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const comparisonProviderAId = <?= json_encode($comparisonProviderAId) ?>;
+    const comparisonProviderBId = <?= json_encode($comparisonProviderBId) ?>;
 
-        let bundleChartInstance = null;
-        let comparisonChartInstance = null;
+    let bundleChartInstance = null;
+    let comparisonChartInstance = null;
+    let internetChartInstance = null;
 
-        function renderBundleChart() {
+    function getInternetProviderById(providerId) {
+        const providerMeta = comparisonProviders.find(p => Number(p.id) === Number(providerId));
+        if (!providerMeta) {
+            return null;
+        }
+
+        return chartProviders.find(p => p.code === providerMeta.code) || null;
+    }
+
+    function buildComparisonRowsDynamic(providerAId, providerBId) {
+        const providerA = getInternetProviderById(providerAId);
+        const providerB = getInternetProviderById(providerBId);
+
+        if (!providerA || !providerB) {
+            return [];
+        }
+
+        return chartProducts.map(product => {
+            const aPrice = providerA.prices[product.code] ?? null;
+            const bPrice = providerB.prices[product.code] ?? null;
+
+            return {
+                product_code: product.code,
+                product_name: product.name,
+                provider_a_price: aPrice,
+                provider_b_price: bPrice,
+                delta: (aPrice !== null && bPrice !== null) ? Number(aPrice) - Number(bPrice) : null,
+            };
+        }).filter(row => row.provider_a_price !== null || row.provider_b_price !== null);
+    }
+
+    function renderComparisonTable(rows) {
+        const tbody = document.getElementById('comparisonTableBody');
+        if (!tbody) return;
+
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="4">Недостаточно данных для сравнения.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rows.map(row => {
+            const deltaHtml = row.delta !== null
+                ? `<strong style="color:${row.delta > 0 ? 'var(--accent-red)' : 'var(--accent-green)'}">${Number(row.delta).toFixed(0)} ₴</strong>`
+                : '—';
+
+            return `
+            <tr>
+                <td><strong>${row.product_name}</strong></td>
+                <td>${row.provider_a_price !== null ? Number(row.provider_a_price).toFixed(0) + ' ₴' : '—'}</td>
+                <td>${row.provider_b_price !== null ? Number(row.provider_b_price).toFixed(0) + ' ₴' : '—'}</td>
+                <td>${deltaHtml}</td>
+            </tr>
+        `;
+        }).join('');
+    }
+
+    function renderComparisonChart() {
+        const canvas = document.getElementById('comparisonChart');
+        const providerASelect = document.getElementById('providerASelect');
+        const providerBSelect = document.getElementById('providerBSelect');
+
+        if (!canvas || !providerASelect || !providerBSelect) return;
+
+        const rows = buildComparisonRowsDynamic(providerASelect.value, providerBSelect.value);
+
+        renderComparisonTable(rows);
+
+        if (comparisonChartInstance) {
+            comparisonChartInstance.destroy();
+        }
+
+        const providerALabel = providerASelect.options[providerASelect.selectedIndex]?.text || 'Базовый';
+        const providerBLabel = providerBSelect.options[providerBSelect.selectedIndex]?.text || 'Конкурент';
+
+        const ctx = canvas.getContext('2d');
+        comparisonChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: rows.map(r => r.product_name),
+                datasets: [
+                    {
+                        label: providerALabel,
+                        data: rows.map(r => r.provider_a_price),
+                    },
+                    {
+                        label: providerBLabel,
+                        data: rows.map(r => r.provider_b_price),
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+            }
+        });
+    }
+
+    function renderBundleChart() {
         const canvas = document.getElementById('bundleChart');
         if (!canvas) return;
 
         const rows = [];
 
         bundleProviders.forEach(provider => {
-        const values = Object.values(provider.prices).filter(v => v !== null && v !== undefined).map(Number);
-        if (values.length > 0) {
-        rows.push({
-        name: provider.name,
-        value: values.reduce((a, b) => a + b, 0) / values.length
-    });
-    }
-    });
+            const values = Object.values(provider.prices).filter(v => v !== null && v !== undefined).map(Number);
+            if (values.length > 0) {
+                rows.push({
+                    name: provider.name,
+                    value: values.reduce((a, b) => a + b, 0) / values.length
+                });
+            }
+        });
 
         rows.sort((a, b) => a.value - b.value);
 
         if (bundleChartInstance) {
-        bundleChartInstance.destroy();
-    }
+            bundleChartInstance.destroy();
+        }
 
         const ctx = canvas.getContext('2d');
         bundleChartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-        labels: rows.map(r => r.name),
-        datasets: [{
-        label: 'Средняя цена пакета',
-        data: rows.map(r => r.value),
-    }]
-    },
-        options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+            type: 'bar',
+            data: {
+                labels: rows.map(r => r.name),
+                datasets: [{
+                    label: 'Средняя цена пакета',
+                    data: rows.map(r => r.value),
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+            }
+        });
     }
-    });
-    }
-
-        function renderComparisonChart() {
-        const canvas = document.getElementById('comparisonChart');
-        if (!canvas) return;
-
-        const rows = comparisonRows.filter(r => r.provider_a_price !== null || r.provider_b_price !== null);
-
-        if (comparisonChartInstance) {
-        comparisonChartInstance.destroy();
-    }
-
-        const ctx = canvas.getContext('2d');
-        comparisonChartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-        labels: rows.map(r => r.product_name),
-        datasets: [
-    {
-        label: 'Базовый',
-        data: rows.map(r => r.provider_a_price),
-    },
-    {
-        label: 'Конкурент',
-        data: rows.map(r => r.provider_b_price),
-    }
-        ]
-    },
-        options: {
-        responsive: true,
-        maintainAspectRatio: false,
-    }
-    });
-    }
-
-        document.addEventListener('DOMContentLoaded', function () {
-        renderBundleChart();
-        renderComparisonChart();
-    });
-
-    let internetChartInstance = null;
 
     function renderInternetChart() {
         const filterEl = document.getElementById('internetPackageFilter');
         const canvas = document.getElementById('internetChart');
 
-        if (!filterEl || !canvas) {
-            return;
-        }
+        if (!filterEl || !canvas) return;
 
         const filter = filterEl.value;
         const rows = [];
@@ -813,11 +863,6 @@ $comparisonProviderBId = $comparisonSection['providerBId'];
         gradient.addColorStop(0, '#007AFF');
         gradient.addColorStop(1, 'rgba(0, 122, 255, 0.10)');
 
-        Chart.defaults.color = '#3C3C4399';
-        Chart.defaults.font.family = "'Inter', -apple-system, sans-serif";
-        Chart.defaults.font.size = 12;
-        Chart.defaults.font.weight = 600;
-
         internetChartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -833,27 +878,29 @@ $comparisonProviderBId = $comparisonSection['providerBId'];
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: 'rgba(255,255,255,0.95)',
-                        titleColor: '#000',
-                        bodyColor: '#3C3C43',
-                        borderColor: 'rgba(0,0,0,0.05)',
-                        borderWidth: 1
-                    }
-                },
-                scales: {
-                    y: {
-                        grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false }
-                    },
-                    x: {
-                        grid: { display: false }
-                    }
-                }
+                plugins: { legend: { display: false } }
             }
         });
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const filterEl = document.getElementById('internetPackageFilter');
+        if (filterEl) {
+            filterEl.addEventListener('change', renderInternetChart);
+        }
+
+        const providerASelect = document.getElementById('providerASelect');
+        const providerBSelect = document.getElementById('providerBSelect');
+
+        if (providerASelect && providerBSelect) {
+            providerASelect.addEventListener('change', renderComparisonChart);
+            providerBSelect.addEventListener('change', renderComparisonChart);
+        }
+
+        renderBundleChart();
+        renderComparisonChart();
+        renderInternetChart();
+    });
 
     document.addEventListener('DOMContentLoaded', function () {
         const filterEl = document.getElementById('internetPackageFilter');
